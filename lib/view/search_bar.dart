@@ -1,0 +1,463 @@
+import 'package:flutter/material.dart';
+import '../core/app_state.dart';
+import '../core/hitomi.dart';
+import '../core/i18n.dart';
+import 'app_notification.dart';
+import 'reader.dart';
+
+class HomeSearchBar extends StatefulWidget {
+  final bool allowDirectId;
+  final Function(String) onSubmitted;
+  final VoidCallback onMenuPressed;
+
+  const HomeSearchBar({
+    super.key,
+    this.allowDirectId = true,
+    required this.onSubmitted,
+    required this.onMenuPressed,
+  });
+
+  @override
+  State<HomeSearchBar> createState() => _HomeSearchBarState();
+}
+
+class _HomeSearchBarState extends State<HomeSearchBar> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  final LayerLink _layerLink = LayerLink();
+  
+  OverlayEntry? _overlayEntry;
+  List<TagSuggestion> _suggestions = [];
+  
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus) {
+        _updateOverlay(); // Show overlay immediately on focus
+        _onTextChanged(_controller.text);
+      } else {
+        _hideOverlay();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _hideOverlay();
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _hideOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  void _showOverlay() {
+    _hideOverlay();
+    _overlayEntry = _createOverlayEntry();
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _updateOverlay() {
+    if (_overlayEntry != null) {
+      _overlayEntry!.markNeedsBuild();
+    } else {
+      _showOverlay();
+    }
+  }
+
+  Future<void> _onTextChanged(String text) async {
+    if (text.isEmpty || text.endsWith(' ')) {
+      // Show recent history
+      final recent = AppState.instance.recentSearches.value;
+      if (mounted) {
+        setState(() {
+          _suggestions = recent.map((e) => TagSuggestion(tag: e, type: 'recent', count: 0)).toList();
+        });
+        _updateOverlay();
+      }
+      return;
+    }
+
+    final lastToken = text.split(' ').last;
+    if (lastToken.isEmpty) return;
+
+    try {
+      final suggestions = await HitomiManager.instance.getTagSuggestions(lastToken);
+      if (mounted) {
+        setState(() => _suggestions = suggestions);
+        _updateOverlay();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _suggestions = []);
+        _hideOverlay(); // Hide if no suggestions and not empty text (to show favs? No, hide)
+      }
+    }
+  }
+
+  void _addTagToQuery(String tag) {
+    final currentText = _controller.text;
+    final tokens = currentText.split(' ');
+    if (tokens.isNotEmpty && !currentText.endsWith(' ')) tokens.removeLast();
+    
+    tokens.add(tag);
+    final newQuery = '${tokens.join(' ')} ';
+    
+    _controller.text = newQuery;
+    _controller.selection = TextSelection.fromPosition(TextPosition(offset: newQuery.length));
+    
+    _focusNode.requestFocus();
+    _onTextChanged(newQuery);
+  }
+
+  void _onSubmit(String text) {
+    _hideOverlay();
+    _focusNode.unfocus();
+
+    if (widget.allowDirectId && RegExp(r'^\d+$').hasMatch(text.trim())) {
+      final id = int.tryParse(text.trim());
+      if (id != null) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ReaderScreen(galleryId: id),
+          ),
+        );
+        return;
+      }
+    }
+
+    widget.onSubmitted(text);
+  }
+
+  Future<void> _deleteFavorite(String type, String value) async {
+    final l = L.of(context);
+    final displayLabel = value.replaceAll('_', ' ');
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l.favDeleteTitle),
+        content: Text(l.favDeleteBody('$type:$displayLabel')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l.delete),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await AppState.instance.toggleFavorite(type, value);
+      if (mounted) {
+        AppNotification.show(context, l.removedFromFav);
+        setState(() {}); // Rebuild to refresh overlay
+        _updateOverlay();
+      }
+    }
+  }
+
+  OverlayEntry _createOverlayEntry() {
+    final renderBox = context.findRenderObject() as RenderBox;
+    final size = renderBox.size;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return OverlayEntry(
+      builder: (context) => Positioned(
+        width: size.width - 32, // Horizontal Padding
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: Offset(16, size.height + 8),
+          child: Material(
+            elevation: 12,
+            shadowColor: Colors.black.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(20),
+            color: colorScheme.surfaceContainer,
+            clipBehavior: Clip.antiAlias,
+            child: TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              tween: Tween(begin: 0.0, end: 1.0),
+              builder: (context, value, child) {
+                return Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, (1.0 - value) * -10),
+                    child: child,
+                  ),
+                );
+              },
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 450),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Favorites Chips Row
+                    ListenableBuilder(
+                      listenable: AppState.instance.favorites,
+                      builder: (context, child) {
+                        final favTags = AppState.instance.favorites.value.allChips.toList();
+                        if (favTags.isEmpty) return const SizedBox.shrink();
+                        
+                        return Container(
+                          height: 56,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            border: Border(bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.3))),
+                          ),
+                          child: ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            scrollDirection: Axis.horizontal,
+                            itemCount: favTags.length,
+                            separatorBuilder: (context, index) => const SizedBox(width: 8),
+                            itemBuilder: (context, index) {
+                              final tag = favTags[index];
+                              final tagParts = tag.split(':');
+                              final type = tagParts.length > 1 ? tagParts[0] : 'tag';
+                              final value = tagParts.length > 1 ? tagParts.sublist(1).join(':') : tag;
+                              final displayTag = value.replaceAll('_', ' ');
+                              
+                              Color chipColor = colorScheme.secondaryContainer.withValues(alpha: 0.5);
+                              Color iconColor = colorScheme.onSecondaryContainer;
+                              IconData icon = Icons.label_rounded;
+
+                              if (type == 'artist') {
+                                icon = Icons.brush_rounded;
+                              } else if (type == 'group') {
+                                icon = Icons.groups_rounded;
+                              } else if (type == 'series') {
+                                icon = Icons.book_rounded;
+                              } else if (type == 'female') {
+                                icon = Icons.female_rounded;
+                                iconColor = Colors.pinkAccent;
+                                chipColor = Colors.pinkAccent.withValues(alpha: 0.1);
+                              } else if (type == 'male') {
+                                icon = Icons.male_rounded;
+                                iconColor = Colors.blueAccent;
+                                chipColor = Colors.blueAccent.withValues(alpha: 0.1);
+                              }
+
+                              return Center(
+                                child: Material(
+                                  color: chipColor,
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(20),
+                                    onTap: () => _addTagToQuery(tag),
+                                    onLongPress: () => _deleteFavorite(type, value),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(icon, size: 14, color: iconColor),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            displayTag,
+                                            style: theme.textTheme.labelSmall?.copyWith(
+                                              color: iconColor,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                    
+                    // Suggestions List
+                    if (_suggestions.isEmpty)
+                       Padding(
+                         padding: const EdgeInsets.all(24),
+                         child: Text(
+                           AppState.instance.recentSearches.value.isEmpty ? 'Search tags or IDs' : 'Recent Searches',
+                           style: theme.textTheme.labelMedium?.copyWith(color: colorScheme.outline),
+                         ),
+                       )
+                    else
+                    Flexible(
+                      child: ListView.separated(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        itemCount: _suggestions.length,
+                        separatorBuilder: (context, index) => Divider(height: 1, thickness: 0.5, color: colorScheme.outlineVariant.withValues(alpha: 0.2)),
+                        itemBuilder: (context, index) {
+                          final item = _suggestions[index];
+                          return _buildSuggestionTile(item, theme, colorScheme);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuggestionTile(TagSuggestion item, ThemeData theme, ColorScheme colorScheme) {
+    IconData icon = Icons.label_rounded;
+    Color color = colorScheme.onSurfaceVariant;
+
+    if (item.type == 'recent') {
+      icon = Icons.history_rounded;
+      color = colorScheme.secondary;
+    } else if (item.type == 'female') {
+      icon = Icons.female_rounded;
+      color = Colors.pinkAccent;
+    } else if (item.type == 'male') {
+      icon = Icons.male_rounded;
+      color = Colors.blueAccent;
+    }
+
+    return ListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 18, color: color),
+      ),
+      title: Text.rich(
+        TextSpan(
+          children: [
+            if (item.type != 'recent')
+              TextSpan(
+                text: '${item.type}: ',
+                style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            TextSpan(
+              text: item.tag,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
+      trailing: item.count > 0 
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${item.count}', 
+                style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.outline, fontWeight: FontWeight.bold),
+              ),
+            )
+          : IconButton(
+              icon: const Icon(Icons.close_rounded, size: 18),
+              onPressed: () async {
+                if (item.type == 'recent') {
+                  await AppState.instance.removeRecentSearch(item.tag);
+                  _onTextChanged(''); 
+                }
+              },
+              color: colorScheme.outline,
+            ),
+      onTap: () {
+        if (item.type == 'recent') {
+          _addTagToQuery(item.tag);
+        } else {
+          _addTagToQuery('${item.type}:${item.tag.replaceAll(' ', '_')}');
+        }
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final l = L.of(context);
+
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), // Added bottom padding to let shadow breathe
+        child: Container(
+          height: 56, 
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh, 
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: theme.brightness == Brightness.dark ? 0.3 : 0.12),
+                blurRadius: 12,
+                spreadRadius: 0, // Reset spreadRadius to prevent artifacting, rely on padding
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.menu_rounded),
+                onPressed: widget.onMenuPressed,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  textAlignVertical: TextAlignVertical.center, // Ensure text is centered vertically
+                  decoration: InputDecoration(
+                    hintText: l.searchHint,
+                    hintStyle: TextStyle(
+                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      fontWeight: FontWeight.w400,
+                    ),
+                    border: InputBorder.none,
+                    isCollapsed: true, // Use isCollapsed for better height control
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12), 
+                  ),
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.onSurface,
+                  ),
+                  onChanged: (val) {
+                    setState(() {}); 
+                    _onTextChanged(val);
+                  },
+                  onSubmitted: _onSubmit,
+                ),
+              ),
+              if (_controller.text.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () {
+                    _controller.clear();
+                    _hideOverlay();
+                    widget.onSubmitted(''); 
+                  },
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              const SizedBox(width: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
