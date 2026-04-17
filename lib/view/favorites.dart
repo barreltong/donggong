@@ -72,7 +72,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       return;
     }
 
-    // V1 Pattern: Load all cached galleries FIRST, then show UI
+    // Load cached galleries first, then render the screen.
     // NO placeholders - only show items that are actually loaded
     final reversedIds = favIds.reversed.toList();
 

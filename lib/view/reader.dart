@@ -22,6 +22,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   final ValueNotifier<int> _currentPageNotifier = ValueNotifier(0);
   int _totalPages = 0;
   final Set<int> _preloadedPages = <int>{};
+  String? _lastReaderMode;
 
   // Controllers
   final PageController _pageController = PageController();
@@ -63,8 +64,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   void _onPageChanged(Gallery gallery, int index) {
-    _updateCurrentPage(index);
-    _preloadUpcomingImages(gallery, index);
+    final page = _viewportIndexToPage(AppState.instance.readerMode.value, index);
+    _updateCurrentPage(page);
+    _preloadUpcomingImages(gallery, page);
   }
 
   void _updateCurrentPage(int page) {
@@ -116,11 +118,104 @@ class _ReaderScreenState extends State<ReaderScreen> {
       }
     } else {
       if (_pageController.hasClients) {
-        _pageController.jumpToPage(page);
+        _pageController.jumpToPage(_pageToViewportIndex(mode, page));
       }
     }
     _updateCurrentPage(page);
     _preloadUpcomingImages(gallery, page);
+  }
+
+  int _pageToViewportIndex(String mode, int page) {
+    return mode == 'doublePage' ? page ~/ 2 : page;
+  }
+
+  int _viewportIndexToPage(String mode, int viewportIndex) {
+    return mode == 'doublePage' ? viewportIndex * 2 : viewportIndex;
+  }
+
+  int _viewportCount(String mode) {
+    return mode == 'doublePage' ? ((_totalPages + 1) ~/ 2) : _totalPages;
+  }
+
+  double _sliderValue(String mode, int currentPage) {
+    return _pageToViewportIndex(mode, currentPage).toDouble();
+  }
+
+  double _sliderMax(String mode) {
+    final max = _viewportCount(mode) - 1;
+    return max > 0 ? max.toDouble() : 1;
+  }
+
+  String _currentPageLabel(String mode, int currentPage) {
+    if (mode != 'doublePage') return '${currentPage + 1}';
+
+    final secondPage = currentPage + 1;
+    if (secondPage < _totalPages) {
+      return '${currentPage + 1}-${secondPage + 1}';
+    }
+    return '${currentPage + 1}';
+  }
+
+  void _syncViewportForMode(String mode) {
+    if (_lastReaderMode == mode) return;
+    _lastReaderMode = mode;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final currentPage = _currentPageNotifier.value;
+      if (mode == 'webtoon') return;
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(_pageToViewportIndex(mode, currentPage));
+      }
+    });
+  }
+
+  Widget _buildReaderPage(GalleryImage image, {double? width, double? height}) {
+    return HitomiImage(
+      imageHash: image.hash,
+      url: image.url,
+      fit: BoxFit.contain,
+      width: width,
+      height: height,
+      showLoadingPlaceholder: false,
+      showErrorIndicator: false,
+    );
+  }
+
+  Widget _buildDoublePageSpread(Gallery gallery, int spreadIndex) {
+    final leftIndex = spreadIndex * 2;
+    final rightIndex = leftIndex + 1;
+    final leftPage = gallery.images[leftIndex];
+    final rightPage = rightIndex < gallery.images.length
+        ? gallery.images[rightIndex]
+        : null;
+
+    return InteractiveViewer(
+      minScale: 1.0,
+      maxScale: 4.0,
+      child: Row(
+        children: [
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: _buildReaderPage(leftPage),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: rightPage != null
+                    ? _buildReaderPage(rightPage)
+                    : const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showPageJumpDialog() async {
@@ -199,42 +294,37 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   listenable: AppState.instance.readerMode,
                   builder: (context, _) {
                     final mode = AppState.instance.readerMode.value;
+                    _syncViewportForMode(mode);
                     if (mode == 'webtoon') {
                       return ListView.builder(
                         controller: _scrollController,
                         itemCount: gallery.images.length,
                         cacheExtent: 2000,
                         itemBuilder: (context, index) {
-                          return HitomiImage(
-                            imageHash: gallery.images[index].hash,
-                            url: gallery.images[index].url,
-                            fit: BoxFit.contain,
+                          return _buildReaderPage(
+                            gallery.images[index],
                             width: MediaQuery.of(context).size.width,
                             height: (gallery.images[index].height / gallery.images[index].width) * 
                                 MediaQuery.of(context).size.width,
-                            showLoadingPlaceholder: false,
-                            showErrorIndicator: false,
                           );
                         },
                       );
                     } else {
                       return PageView.builder(
                         controller: _pageController,
-                        scrollDirection: mode == 'horizontalPage' ? Axis.horizontal : Axis.vertical,
-                        itemCount: gallery.images.length,
+                        scrollDirection: mode == 'verticalPage' ? Axis.vertical : Axis.horizontal,
+                        itemCount: _viewportCount(mode),
                         onPageChanged: (index) => _onPageChanged(gallery, index),
                         itemBuilder: (context, index) {
+                          if (mode == 'doublePage') {
+                            return _buildDoublePageSpread(gallery, index);
+                          }
+
                           return InteractiveViewer(
                             minScale: 1.0,
                             maxScale: 4.0,
                             child: Center(
-                              child: HitomiImage(
-                                imageHash: gallery.images[index].hash,
-                                url: gallery.images[index].url,
-                                fit: BoxFit.contain,
-                                showLoadingPlaceholder: false,
-                                showErrorIndicator: false,
-                              ),
+                              child: _buildReaderPage(gallery.images[index]),
                             ),
                           );
                         },
@@ -272,6 +362,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           itemBuilder: (context) => [
                             PopupMenuItem(value: 'verticalPage', child: Text(l.verticalPage)),
                             PopupMenuItem(value: 'horizontalPage', child: Text(l.horizontalPage)),
+                            PopupMenuItem(value: 'doublePage', child: Text(l.doublePage)),
                             PopupMenuItem(value: 'webtoon', child: Text(l.webtoon)),
                           ],
                         ),
@@ -309,40 +400,49 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   padding: const EdgeInsets.all(16),
                   child: SafeArea(
                     top: false,
-                    child: ValueListenableBuilder<int>(
-                      valueListenable: _currentPageNotifier,
-                      builder: (context, currentPage, _) {
-                        return Row(
-                          children: [
-                            InkWell(
-                              onTap: _showPageJumpDialog,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                child: Text(
-                                  '${currentPage + 1}',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    child: ListenableBuilder(
+                      listenable: AppState.instance.readerMode,
+                      builder: (context, _) {
+                        return ValueListenableBuilder<int>(
+                          valueListenable: _currentPageNotifier,
+                          builder: (context, currentPage, _) {
+                            final mode = AppState.instance.readerMode.value;
+                            return Row(
+                              children: [
+                                InkWell(
+                                  onTap: _showPageJumpDialog,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    child: Text(
+                                      _currentPageLabel(mode, currentPage),
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Slider(
-                                value: currentPage.toDouble().clamp(0, (_totalPages - 1).toDouble()),
-                                min: 0,
-                                max: (_totalPages > 1) ? (_totalPages - 1).toDouble() : 1,
-                                onChanged: (value) => _jumpToPage(gallery, value.round()),
-                              ),
-                            ),
-                            InkWell(
-                              onTap: _showPageJumpDialog,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                child: Text(
-                                  '$_totalPages',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                Expanded(
+                                  child: Slider(
+                                    value: _sliderValue(mode, currentPage).clamp(0, _sliderMax(mode)),
+                                    min: 0,
+                                    max: _sliderMax(mode),
+                                    onChanged: (value) => _jumpToPage(
+                                      gallery,
+                                      _viewportIndexToPage(mode, value.round()),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ],
+                                InkWell(
+                                  onTap: _showPageJumpDialog,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    child: Text(
+                                      '$_totalPages',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         );
                       },
                     ),

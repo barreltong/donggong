@@ -248,6 +248,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           value: 'horizontalPage',
                           child: Text(l.horizontalPage),
                         ),
+                        DropdownMenuItem(
+                          value: 'doublePage',
+                          child: Text(l.doublePage),
+                        ),
                       ],
                     );
                   },
@@ -466,7 +470,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _exportFavorites(BuildContext context, L l) async {
     try {
       final favs = AppState.instance.favorites.value;
-      final jsonMap = favs.toV1Json();
+      final jsonMap = favs.toDonggongJson();
       final jsonString = jsonEncode(jsonMap);
       final now = DateTime.now();
       final fileName =
@@ -507,7 +511,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final jsonString = await file.readAsString();
         final Map<String, dynamic> jsonMap = jsonDecode(jsonString);
 
-        final newFavs = Favorites.fromV1Json(jsonMap);
+        final isDonggongFormat = jsonMap.containsKey('favoriteId') ||
+            jsonMap.containsKey('favoriteArtist') ||
+            jsonMap.containsKey('favoriteTag') ||
+            jsonMap.containsKey('favoriteLanguage') ||
+            jsonMap.containsKey('favoriteGroup') ||
+            jsonMap.containsKey('favoriteParody') ||
+            jsonMap.containsKey('favoriteCharacter');
+
+        final isPupilFormat = jsonMap.containsKey('favorites') ||
+            jsonMap.containsKey('favorite_tags');
+
+        final newFavs = isDonggongFormat
+            ? Favorites.fromDonggongJson(jsonMap)
+            : isPupilFormat
+                ? Favorites.fromPupilJson(jsonMap)
+                : throw const FormatException('Unsupported favorites format');
+
         await AppState.instance.importFavorites(newFavs);
 
         if (context.mounted) {

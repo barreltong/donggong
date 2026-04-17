@@ -193,7 +193,7 @@ class Favorites {
     return list;
   }
 
-  Map<String, dynamic> toV1Json() {
+  Map<String, dynamic> toDonggongJson() {
     return {
       'favoriteId': galleries.toList(),
       'favoriteArtist': artists.toList(),
@@ -205,7 +205,7 @@ class Favorites {
     };
   }
 
-  factory Favorites.fromV1Json(Map<String, dynamic> json) {
+  factory Favorites.fromDonggongJson(Map<String, dynamic> json) {
     return Favorites(
       galleries: (json['favoriteId'] as List?)?.cast<int>().toSet() ?? {},
       artists: _normalizedSet(json['favoriteArtist'] as List?),
@@ -216,6 +216,67 @@ class Favorites {
       groups: _normalizedSet(json['favoriteGroup'] as List?),
       parodys: _normalizedSet(json['favoriteParody'] as List?),
       characters: _normalizedSet(json['favoriteCharacter'] as List?),
+    );
+  }
+
+  factory Favorites.fromPupilJson(Map<String, dynamic> json) {
+    final galleries = ((json['favorites'] as List?) ?? [])
+        .map((value) => value is int ? value : int.tryParse(value.toString()))
+        .whereType<int>()
+        .toSet();
+
+    final artists = <String>{};
+    final groups = <String>{};
+    final characters = <String>{};
+    final parodys = <String>{};
+    final languages = <String>{};
+    final tags = <String>{};
+
+    final favoriteTags = json['favorite_tags'] as List?;
+    if (favoriteTags != null) {
+      for (final item in favoriteTags) {
+        if (item is! Map) continue;
+
+        final rawArea = item['area']?.toString();
+        final rawTag = item['tag']?.toString();
+        if (rawArea == null || rawTag == null || rawTag.isEmpty) continue;
+
+        final area = _canonicalType(rawArea);
+        final value = _normalizeValue(rawTag);
+
+        switch (area) {
+          case 'artist':
+            artists.add(value);
+            break;
+          case 'group':
+            groups.add(value);
+            break;
+          case 'character':
+            characters.add(value);
+            break;
+          case 'series':
+            parodys.add(value);
+            break;
+          case 'language':
+            languages.add(value);
+            break;
+          case 'tag':
+          case 'male':
+          case 'female':
+            tags.add(TagUtils.buildKey(area, value));
+            break;
+        }
+      }
+    }
+
+    return Favorites(
+      galleries: galleries,
+      artists: artists,
+      groups: groups,
+      characters: characters,
+      parodys: parodys,
+      languages: languages,
+      tags: tags,
     );
   }
 }

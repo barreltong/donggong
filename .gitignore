@@ -11,9 +11,6 @@
 .svn/
 .swiftpm/
 
-# v1
-lib_v1/
-
 # refs
 for-ai-refs/
 

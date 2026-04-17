@@ -59,6 +59,7 @@ class L {
       'settings_reader_webtoon': 'Webtoon',
       'settings_reader_vertical': 'Vertical Page',
       'settings_reader_horizontal': 'Horizontal Page',
+      'settings_reader_double_page': 'Two-Page View',
 
       // Data Management
       'settings_clear_cache': 'Clear Cache',
@@ -165,6 +166,7 @@ class L {
       'settings_reader_webtoon': '웹툰(연속) 보기',
       'settings_reader_vertical': '세로 넘기기',
       'settings_reader_horizontal': '가로 넘기기',
+      'settings_reader_double_page': '두쪽 보기',
 
       // 데이터 관리
       'settings_clear_cache': '캐시 삭제',
@@ -284,6 +286,7 @@ class L {
   String get webtoon => get('settings_reader_webtoon');
   String get verticalPage => get('settings_reader_vertical');
   String get horizontalPage => get('settings_reader_horizontal');
+  String get doublePage => get('settings_reader_double_page');
 
   String get clearCache => get('settings_clear_cache');
   String get clearCacheDesc => get('settings_clear_cache_desc');
