@@ -97,6 +97,35 @@ class DbManager {
     );
   }
 
+  static Future<void> normalizeFavorites(
+    Iterable<({String type, String from, String to})> updates,
+  ) async {
+    final batch = db.batch();
+
+    for (final update in updates) {
+      removeFavoriteBatch(batch, update.type, update.from);
+      addFavoriteBatch(batch, update.type, update.to);
+    }
+
+    await batch.commit(noResult: true);
+  }
+
+  static void addFavoriteBatch(Batch batch, String type, String value) {
+    batch.insert(
+      'favorites',
+      {'type': type, 'value': value},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static void removeFavoriteBatch(Batch batch, String type, String value) {
+    batch.delete(
+      'favorites',
+      where: 'type = ? AND value = ?',
+      whereArgs: [type, value],
+    );
+  }
+
   // ─── History (Recent Viewed) ───
   static Future<List<int>> getRecentViewedIds({int limit = 50}) async {
     final rows = await db.query(

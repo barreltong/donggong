@@ -3,12 +3,14 @@ import 'package:flutter/services.dart';
 import '../core/hitomi.dart';
 import '../core/app_state.dart';
 import '../core/i18n.dart';
+import '../core/tag_utils.dart';
 import 'app_notification.dart';
 import 'widgets.dart';
 
 class DetailBottomSheet extends StatefulWidget {
   final int galleryId;
-  const DetailBottomSheet({super.key, required this.galleryId});
+  final void Function(String query)? onSearchTag;
+  const DetailBottomSheet({super.key, required this.galleryId, this.onSearchTag});
 
   @override
   State<DetailBottomSheet> createState() => _DetailBottomSheetState();
@@ -286,7 +288,7 @@ class _DetailBottomSheetState extends State<DetailBottomSheet> {
   }
 
   Widget _buildTagSection(String title, List<String> tags, L l) {
-    if (tags.isEmpty && title != l.galleryInfo) return const SizedBox.shrink(); 
+    if (tags.isEmpty && title != l.galleryInfo) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Column(
@@ -298,7 +300,13 @@ class _DetailBottomSheetState extends State<DetailBottomSheet> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: tags.map((tag) => TagChip(label: tag)).toList(),
+              children: tags.map((tag) => TagChip(
+                label: tag,
+                onTap: () {
+                  Navigator.pop(context);
+                  widget.onSearchTag?.call(TagUtils.normalizeTagLabel(tag));
+                },
+              )).toList(),
             ),
         ],
       ),

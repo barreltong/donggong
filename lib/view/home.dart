@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/hitomi.dart';
 import '../core/app_state.dart';
 import '../core/i18n.dart';
+import '../core/tag_utils.dart';
 import 'widgets.dart';
 import 'search_bar.dart';
 
@@ -30,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _scrollController.addListener(_onScroll);
     AppState.instance.defaultLanguage.addListener(_onLanguageChanged);
     AppState.instance.listingMode.addListener(_onListingModeChanged);
+    AppState.instance.pendingSearch.addListener(_onPendingSearch);
   }
 
   @override
@@ -37,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _scrollController.dispose();
     AppState.instance.defaultLanguage.removeListener(_onLanguageChanged);
     AppState.instance.listingMode.removeListener(_onListingModeChanged);
+    AppState.instance.pendingSearch.removeListener(_onPendingSearch);
     super.dispose();
   }
 
@@ -50,6 +53,13 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       _loadData(refresh: true, targetPage: 1);
     }
+  }
+
+  void _onPendingSearch() {
+    final query = AppState.instance.pendingSearch.value;
+    if (query == null || !mounted) return;
+    AppState.instance.pendingSearch.value = null;
+    _onSearchSubmitted(query);
   }
 
   void _onScroll() {
@@ -119,12 +129,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onSearchSubmitted(String query) {
+    final normalizedQuery = TagUtils.normalizeQuery(query);
     setState(() {
-      _query = query;
+      _query = normalizedQuery;
       _page = 1;
     });
-    if (query.isNotEmpty) {
-      AppState.instance.addRecentSearch(query);
+    if (normalizedQuery.isNotEmpty) {
+      AppState.instance.addRecentSearch(normalizedQuery);
     }
     _loadData(refresh: true, targetPage: 1);
   }
@@ -192,6 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
           toolbarHeight: 80, // Increased for search bar breathing room
           titleSpacing: 0,
           title: HomeSearchBar(
+            query: _query,
             onSubmitted: _onSearchSubmitted,
             onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
@@ -267,6 +279,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         isLoading: _isLoading && !isPagination,
                         scrollController: _scrollController,
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        onSearchTag: (query) => _onSearchSubmitted(query),
                       ),
               ),
             ),

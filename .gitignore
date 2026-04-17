@@ -15,7 +15,10 @@
 lib_v1/
 
 # refs
-/for-ai-refs
+for-ai-refs/
+
+# claude settings
+.claude/
 
 # IntelliJ related
 *.iml

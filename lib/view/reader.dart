@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../core/hitomi.dart';
 import '../core/app_state.dart';
 import '../core/i18n.dart';
+import '../network/http.dart';
 import 'widgets.dart';
 import 'detail.dart'; // For bottom sheet info
 
@@ -19,6 +21,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   bool _showControls = true;
   final ValueNotifier<int> _currentPageNotifier = ValueNotifier(0);
   int _totalPages = 0;
+  final Set<int> _preloadedPages = <int>{};
 
   // Controllers
   final PageController _pageController = PageController();
@@ -51,15 +54,60 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final progress = _scrollController.offset / _scrollController.position.maxScrollExtent;
     final page = (progress * (_totalPages - 1)).round();
     if (page != _currentPageNotifier.value) {
-      _currentPageNotifier.value = page;
+      _updateCurrentPage(page);
+      _galleryFuture.then((gallery) {
+        if (!mounted) return;
+        _preloadUpcomingImages(gallery, page);
+      });
     }
   }
 
-  void _onPageChanged(int index) {
-    _currentPageNotifier.value = index;
+  void _onPageChanged(Gallery gallery, int index) {
+    _updateCurrentPage(index);
+    _preloadUpcomingImages(gallery, index);
   }
 
-  void _jumpToPage(int page) {
+  void _updateCurrentPage(int page) {
+    _currentPageNotifier.value = page;
+  }
+
+  void _preloadUpcomingImages(Gallery gallery, int currentIndex) {
+    if (!mounted || gallery.images.isEmpty) return;
+
+    final lastIndex = gallery.images.length - 1;
+    final endIndex = (currentIndex + 3).clamp(0, lastIndex);
+
+    for (int index = currentIndex; index <= endIndex; index++) {
+      if (!_preloadedPages.add(index)) continue;
+      _precacheReaderImage(gallery.images[index].hash);
+    }
+  }
+
+  Future<void> _precacheReaderImage(String hash) async {
+    try {
+      final url = await HitomiManager.instance.resolveImageUrl(hash);
+      if (!mounted) return;
+
+      await precacheImage(
+        CachedNetworkImageProvider(
+          url,
+          headers: HttpClient.defaultHeaders,
+        ),
+        context,
+      );
+    } catch (_) {}
+  }
+
+  void _ensureInitialPreload(Gallery gallery) {
+    if (_preloadedPages.isNotEmpty) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _preloadUpcomingImages(gallery, _currentPageNotifier.value);
+    });
+  }
+
+  void _jumpToPage(Gallery gallery, int page) {
     final mode = AppState.instance.readerMode.value;
     if (mode == 'webtoon') {
       if (_scrollController.hasClients) {
@@ -71,7 +119,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
         _pageController.jumpToPage(page);
       }
     }
-    _currentPageNotifier.value = page;
+    _updateCurrentPage(page);
+    _preloadUpcomingImages(gallery, page);
   }
 
   Future<void> _showPageJumpDialog() async {
@@ -117,7 +166,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
 
     if (jumpPage != null) {
-      _jumpToPage(jumpPage - 1);
+      final gallery = await _galleryFuture;
+      if (!mounted) return;
+      _jumpToPage(gallery, jumpPage - 1);
     }
   }
 
@@ -138,6 +189,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
           final gallery = snapshot.data!;
           _totalPages = gallery.images.length;
+          _ensureInitialPreload(gallery);
 
           return Stack(
             children: [
@@ -154,11 +206,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         cacheExtent: 2000,
                         itemBuilder: (context, index) {
                           return HitomiImage(
+                            imageHash: gallery.images[index].hash,
                             url: gallery.images[index].url,
                             fit: BoxFit.contain,
                             width: MediaQuery.of(context).size.width,
                             height: (gallery.images[index].height / gallery.images[index].width) * 
                                 MediaQuery.of(context).size.width,
+                            showLoadingPlaceholder: false,
+                            showErrorIndicator: false,
                           );
                         },
                       );
@@ -167,15 +222,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         controller: _pageController,
                         scrollDirection: mode == 'horizontalPage' ? Axis.horizontal : Axis.vertical,
                         itemCount: gallery.images.length,
-                        onPageChanged: _onPageChanged,
+                        onPageChanged: (index) => _onPageChanged(gallery, index),
                         itemBuilder: (context, index) {
                           return InteractiveViewer(
                             minScale: 1.0,
                             maxScale: 4.0,
                             child: Center(
                               child: HitomiImage(
+                                imageHash: gallery.images[index].hash,
                                 url: gallery.images[index].url,
                                 fit: BoxFit.contain,
+                                showLoadingPlaceholder: false,
+                                showErrorIndicator: false,
                               ),
                             ),
                           );
@@ -224,7 +282,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               context: context,
                               isScrollControlled: true,
                               backgroundColor: Colors.transparent,
-                              builder: (context) => DetailBottomSheet(galleryId: gallery.id),
+                              builder: (context) => DetailBottomSheet(
+                                galleryId: gallery.id,
+                                onSearchTag: (query) {
+                                  AppState.instance.pendingSearch.value = query;
+                                  Navigator.of(context).popUntil((route) => route.isFirst);
+                                },
+                              ),
                             );
                           },
                         ),
@@ -265,7 +329,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                 value: currentPage.toDouble().clamp(0, (_totalPages - 1).toDouble()),
                                 min: 0,
                                 max: (_totalPages > 1) ? (_totalPages - 1).toDouble() : 1,
-                                onChanged: (value) => _jumpToPage(value.round()),
+                                onChanged: (value) => _jumpToPage(gallery, value.round()),
                               ),
                             ),
                             InkWell(

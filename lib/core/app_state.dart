@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'database.dart';
 import 'hitomi.dart';
+import 'tag_utils.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Models
@@ -27,29 +28,87 @@ class Favorites {
     this.tags = const {},
   });
 
-  bool isFavorite(String type, dynamic value) {
-    switch (type) {
-      case 'gallery':
-        return galleries.contains(
-          value is int ? value : int.tryParse(value.toString()) ?? 0,
-        );
-      case 'artist':
-        return artists.contains(value);
-      case 'group':
-        return groups.contains(value);
-      case 'character':
-        return characters.contains(value);
-      case 'series':
-      case 'parody':
-        return parodys.contains(value);
-      case 'language':
-        return languages.contains(value);
+  static String _normalizeValue(String value) {
+    return TagUtils.normalizeTagValue(value);
+  }
+
+  static String _canonicalType(String type) {
+    return type == 'parody' ? 'series' : type;
+  }
+
+  static bool _isTagType(String type) {
+    switch (_canonicalType(type)) {
       case 'tag':
       case 'male':
       case 'female':
-        return tags.contains(type == 'tag' ? 'tag:$value' : '$type:$value');
+        return true;
       default:
         return false;
+    }
+  }
+
+  static String _chipLabel(String type, String value) {
+    return '${_canonicalType(type)}:$value';
+  }
+
+  static Set<String> _normalizedSet(List<dynamic>? values) {
+    return (values?.cast<String>() ?? []).map(_normalizeValue).toSet();
+  }
+
+  Set<String>? _stringSetForType(String type) {
+    switch (_canonicalType(type)) {
+      case 'artist':
+        return artists;
+      case 'group':
+        return groups;
+      case 'character':
+        return characters;
+      case 'series':
+        return parodys;
+      case 'language':
+        return languages;
+      default:
+        return null;
+    }
+  }
+
+  Favorites _copyWithUpdatedSet(String type, Set<String> values) {
+    switch (_canonicalType(type)) {
+      case 'artist':
+        return copyWith(artists: values);
+      case 'group':
+        return copyWith(groups: values);
+      case 'character':
+        return copyWith(characters: values);
+      case 'series':
+        return copyWith(parodys: values);
+      case 'language':
+        return copyWith(languages: values);
+      default:
+        return this;
+    }
+  }
+
+  bool isFavorite(String type, dynamic value) {
+    final canonicalType = _canonicalType(type);
+    final stringValue = value.toString();
+    switch (canonicalType) {
+      case 'gallery':
+        return galleries.contains(
+          value is int ? value : int.tryParse(stringValue) ?? 0,
+        );
+      case 'artist':
+      case 'group':
+      case 'character':
+      case 'series':
+      case 'language':
+        return _stringSetForType(canonicalType)!.contains(
+          _normalizeValue(stringValue),
+        );
+      default:
+        return _isTagType(canonicalType)
+            ? tags.contains(TagUtils.buildKey(canonicalType, stringValue))
+            : false;
     }
   }
 
@@ -74,79 +133,63 @@ class Favorites {
   }
 
   Favorites addItem(String type, String value) {
-    switch (type) {
+    final canonicalType = _canonicalType(type);
+    final normalizedValue = _normalizeValue(value);
+    switch (canonicalType) {
       case 'gallery':
         return copyWith(galleries: Set.from(galleries)..add(int.parse(value)));
       case 'artist':
-        return copyWith(artists: Set.from(artists)..add(value));
       case 'group':
-        return copyWith(groups: Set.from(groups)..add(value));
       case 'character':
-        return copyWith(characters: Set.from(characters)..add(value));
       case 'series':
-      case 'parody':
-        return copyWith(parodys: Set.from(parodys)..add(value));
       case 'language':
-        return copyWith(languages: Set.from(languages)..add(value));
-      case 'tag':
-      case 'male':
-      case 'female':
-        return copyWith(
-          tags: Set.from(tags)
-            ..add(type == 'tag' ? 'tag:$value' : '$type:$value'),
+        return _copyWithUpdatedSet(
+          canonicalType,
+          Set<String>.from(_stringSetForType(canonicalType)!)
+            ..add(normalizedValue),
         );
       default:
-        return this;
+        if (!_isTagType(canonicalType)) return this;
+        return copyWith(
+          tags: Set.from(tags)..add(TagUtils.buildKey(canonicalType, value)),
+        );
     }
   }
 
   Favorites removeItem(String type, String value) {
-    switch (type) {
+    final canonicalType = _canonicalType(type);
+    final normalizedValue = _normalizeValue(value);
+    switch (canonicalType) {
       case 'gallery':
         return copyWith(
           galleries: Set.from(galleries)..remove(int.parse(value)),
         );
       case 'artist':
-        return copyWith(artists: Set.from(artists)..remove(value));
       case 'group':
-        return copyWith(groups: Set.from(groups)..remove(value));
       case 'character':
-        return copyWith(characters: Set.from(characters)..remove(value));
       case 'series':
-      case 'parody':
-        return copyWith(parodys: Set.from(parodys)..remove(value));
       case 'language':
-        return copyWith(languages: Set.from(languages)..remove(value));
-      case 'tag':
-      case 'male':
-      case 'female':
-        return copyWith(
-          tags: Set.from(tags)
-            ..remove(type == 'tag' ? 'tag:$value' : '$type:$value'),
+        return _copyWithUpdatedSet(
+          canonicalType,
+          Set<String>.from(_stringSetForType(canonicalType)!)
+            ..remove(normalizedValue),
         );
       default:
-        return this;
+        if (!_isTagType(canonicalType)) return this;
+        return copyWith(
+          tags: Set.from(tags)..remove(TagUtils.buildKey(canonicalType, value)),
+        );
     }
   }
 
   List<String> get allChips {
     final list = <String>[];
     list.addAll(tags);
-    for (var v in artists) {
-      list.add('artist:$v');
-    }
-    for (var v in groups) {
-      list.add('group:$v');
-    }
-    for (var v in characters) {
-      list.add('character:$v');
-    }
-    for (var v in parodys) {
-      list.add('series:$v');
-    }
-    for (var v in languages) {
-      list.add('language:$v');
-    }
+    list.addAll(artists.map((v) => _chipLabel('artist', v)));
+    list.addAll(groups.map((v) => _chipLabel('group', v)));
+    list.addAll(characters.map((v) => _chipLabel('character', v)));
+    list.addAll(parodys.map((v) => _chipLabel('series', v)));
+    list.addAll(languages.map((v) => _chipLabel('language', v)));
     return list;
   }
 
@@ -165,14 +208,14 @@ class Favorites {
   factory Favorites.fromV1Json(Map<String, dynamic> json) {
     return Favorites(
       galleries: (json['favoriteId'] as List?)?.cast<int>().toSet() ?? {},
-      artists: (json['favoriteArtist'] as List?)?.cast<String>().toSet() ?? {},
-      tags: (json['favoriteTag'] as List?)?.cast<String>().toSet() ?? {},
-      languages:
-          (json['favoriteLanguage'] as List?)?.cast<String>().toSet() ?? {},
-      groups: (json['favoriteGroup'] as List?)?.cast<String>().toSet() ?? {},
-      parodys: (json['favoriteParody'] as List?)?.cast<String>().toSet() ?? {},
-      characters:
-          (json['favoriteCharacter'] as List?)?.cast<String>().toSet() ?? {},
+      artists: _normalizedSet(json['favoriteArtist'] as List?),
+      tags: ((json['favoriteTag'] as List?)?.cast<String>() ?? [])
+          .map(TagUtils.normalizeTagLabel)
+          .toSet(),
+      languages: _normalizedSet(json['favoriteLanguage'] as List?),
+      groups: _normalizedSet(json['favoriteGroup'] as List?),
+      parodys: _normalizedSet(json['favoriteParody'] as List?),
+      characters: _normalizedSet(json['favoriteCharacter'] as List?),
     );
   }
 }
@@ -189,6 +232,7 @@ class AppState {
   final ValueNotifier<Favorites> favorites = ValueNotifier(Favorites());
   final ValueNotifier<List<Gallery>> history = ValueNotifier([]);
   final ValueNotifier<List<String>> recentSearches = ValueNotifier([]);
+  final ValueNotifier<String?> pendingSearch = ValueNotifier(null);
 
   // Advanced Settings
   final ValueNotifier<String> appLanguage = ValueNotifier('ko');
@@ -285,6 +329,57 @@ class AppState {
   }
 
   // ─── Favorites ───
+  String _normalizeFavoriteValue(String type, String value) {
+    return type == 'gallery' ? value : TagUtils.normalizeTagValue(value);
+  }
+
+  void _addFavoriteToCollections({
+    required String type,
+    required String value,
+    required Set<int> galleries,
+    required Set<String> artists,
+    required Set<String> groups,
+    required Set<String> characters,
+    required Set<String> parodys,
+    required Set<String> languages,
+    required Set<String> tags,
+  }) {
+    switch (type) {
+      case 'gallery':
+        galleries.add(int.parse(value));
+        break;
+      case 'artist':
+        artists.add(value);
+        break;
+      case 'group':
+        groups.add(value);
+        break;
+      case 'character':
+        characters.add(value);
+        break;
+      case 'series':
+        parodys.add(value);
+        break;
+      case 'language':
+        languages.add(value);
+        break;
+      case 'tag':
+      case 'male':
+      case 'female':
+        tags.add(TagUtils.buildKey(type, value));
+        break;
+    }
+  }
+
+  void _insertFavoriteBatch(Batch batch, String type, Iterable<String> values) {
+    for (final value in values) {
+      batch.insert('favorites', {
+        'type': type,
+        'value': _normalizeFavoriteValue(type, value),
+      });
+    }
+  }
+
   Future<void> _loadFavorites() async {
     final rows = await DbManager.getFavorites();
 
@@ -296,37 +391,32 @@ class AppState {
     final parodys = <String>{};
     final languages = <String>{};
     final tags = <String>{};
+    final rowsToNormalize = <({String type, String from, String to})>[];
 
     for (var row in rows) {
       final type = row['type'] as String;
       final value = row['value'] as String;
+      final normalizedValue = _normalizeFavoriteValue(type, value);
 
-      switch (type) {
-        case 'gallery':
-          galleries.add(int.parse(value));
-          break;
-        case 'artist':
-          artists.add(value);
-          break;
-        case 'group':
-          groups.add(value);
-          break;
-        case 'character':
-          characters.add(value);
-          break;
-        case 'series': // 'series' in DB
-          parodys.add(value);
-          break;
-        case 'language':
-          languages.add(value);
-          break;
-        case 'tag':
-        case 'male':
-        case 'female':
-          // Reconstruct tag string
-          tags.add(type == 'tag' ? 'tag:$value' : '$type:$value');
-          break;
+      if (type != 'gallery' && value != normalizedValue) {
+        rowsToNormalize.add((type: type, from: value, to: normalizedValue));
       }
+
+      _addFavoriteToCollections(
+        type: type,
+        value: normalizedValue,
+        galleries: galleries,
+        artists: artists,
+        groups: groups,
+        characters: characters,
+        parodys: parodys,
+        languages: languages,
+        tags: tags,
+      );
+    }
+
+    if (rowsToNormalize.isNotEmpty) {
+      await DbManager.normalizeFavorites(rowsToNormalize);
     }
 
     favorites.value = Favorites(
@@ -345,13 +435,14 @@ class AppState {
     String value, {
     Gallery? gallery,
   }) async {
+    final normalizedValue = _normalizeFavoriteValue(type, value);
     final current = favorites.value;
-    if (current.isFavorite(type, value)) {
-      favorites.value = current.removeItem(type, value);
-      await DbManager.removeFavorite(type, value);
+    if (current.isFavorite(type, normalizedValue)) {
+      favorites.value = current.removeItem(type, normalizedValue);
+      await DbManager.removeFavorite(type, normalizedValue);
     } else {
-      favorites.value = current.addItem(type, value);
-      await DbManager.addFavorite(type, value);
+      favorites.value = current.addItem(type, normalizedValue);
+      await DbManager.addFavorite(type, normalizedValue);
 
       // If adding a gallery, ensure it's cached
       if (type == 'gallery' && gallery != null) {
@@ -373,50 +464,21 @@ class AppState {
     for (final id in newFavs.galleries) {
       batch.insert('favorites', {'type': 'gallery', 'value': id.toString()});
     }
-    for (final val in newFavs.artists) {
-      batch.insert('favorites', {'type': 'artist', 'value': val});
-    }
-    for (final val in newFavs.groups) {
-      batch.insert('favorites', {'type': 'group', 'value': val});
-    }
-    for (final val in newFavs.characters) {
-      batch.insert('favorites', {'type': 'character', 'value': val});
-    }
-    for (final val in newFavs.parodys) {
-      batch.insert('favorites', {
-        'type': 'series',
-        'value': val,
-      }); // 'series' in DB
-    }
-    for (final val in newFavs.languages) {
-      batch.insert('favorites', {'type': 'language', 'value': val});
-    }
+    _insertFavoriteBatch(batch, 'artist', newFavs.artists);
+    _insertFavoriteBatch(batch, 'group', newFavs.groups);
+    _insertFavoriteBatch(batch, 'character', newFavs.characters);
+    _insertFavoriteBatch(batch, 'series', newFavs.parodys);
+    _insertFavoriteBatch(batch, 'language', newFavs.languages);
     for (final val in newFavs.tags) {
-      // tags set contains "type:value" string.
-      // Need to split?
-      // V1 TagChip logic: "female:xxx" -> type=female, value=xxx.
-      // Favorites.add logic: type=tag -> "tag:xxx", type=male -> "male:xxx".
-      // So the string in `tags` Set IS "type:value".
-      // DB expects type and value separately.
-      final parts = val.split(':');
-      if (parts.length >= 2) {
-        final type = parts[0];
-        final value = parts.sublist(1).join(':');
-        batch.insert('favorites', {
-          'type': type,
-          'value': value,
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
-      } else {
-        // Fallback for non-namespaced tags (legacy/simple tags)
-        batch.insert('favorites', {
-          'type': 'tag',
-          'value': val,
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+      final tag = TagInfo.parse(val);
+      batch.insert('favorites', {
+        'type': tag.type,
+        'value': tag.value,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     await batch.commit(noResult: true);
-    favorites.value = newFavs;
+    await _loadFavorites();
   }
 
   // ─── History ───

@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import '../core/app_state.dart';
 import '../core/hitomi.dart';
 import '../core/i18n.dart';
+import '../core/tag_utils.dart';
 import 'app_notification.dart';
 import 'reader.dart';
 
 class HomeSearchBar extends StatefulWidget {
   final bool allowDirectId;
+  final String query;
   final Function(String) onSubmitted;
   final VoidCallback onMenuPressed;
 
   const HomeSearchBar({
     super.key,
     this.allowDirectId = true,
+    this.query = '',
     required this.onSubmitted,
     required this.onMenuPressed,
   });
@@ -32,6 +35,7 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
   @override
   void initState() {
     super.initState();
+    _controller.text = widget.query;
     _focusNode.addListener(() {
       if (_focusNode.hasFocus) {
         _updateOverlay(); // Show overlay immediately on focus
@@ -48,6 +52,17 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeSearchBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.query != oldWidget.query && widget.query != _controller.text) {
+      _controller.text = widget.query;
+      _controller.selection = TextSelection.fromPosition(
+        TextPosition(offset: widget.query.length),
+      );
+    }
   }
 
   void _hideOverlay() {
@@ -104,7 +119,7 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
     final tokens = currentText.split(' ');
     if (tokens.isNotEmpty && !currentText.endsWith(' ')) tokens.removeLast();
     
-    tokens.add(tag);
+    tokens.add(TagUtils.normalizeTagLabel(tag));
     final newQuery = '${tokens.join(' ')} ';
     
     _controller.text = newQuery;
@@ -114,12 +129,26 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
     _onTextChanged(newQuery);
   }
 
+  void _replaceQuery(String query) {
+    final normalizedQuery = TagUtils.normalizeQuery(query);
+    final newQuery = normalizedQuery.isEmpty ? '' : '$normalizedQuery ';
+
+    _controller.text = newQuery;
+    _controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: newQuery.length),
+    );
+
+    _focusNode.requestFocus();
+    _onTextChanged(newQuery);
+  }
+
   void _onSubmit(String text) {
+    final normalizedText = TagUtils.normalizeQuery(text);
     _hideOverlay();
     _focusNode.unfocus();
 
-    if (widget.allowDirectId && RegExp(r'^\d+$').hasMatch(text.trim())) {
-      final id = int.tryParse(text.trim());
+    if (widget.allowDirectId && RegExp(r'^\d+$').hasMatch(normalizedText)) {
+      final id = int.tryParse(normalizedText);
       if (id != null) {
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -130,12 +159,19 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
       }
     }
 
-    widget.onSubmitted(text);
+    if (_controller.text != normalizedText) {
+      _controller.text = normalizedText;
+      _controller.selection = TextSelection.fromPosition(
+        TextPosition(offset: normalizedText.length),
+      );
+    }
+
+    widget.onSubmitted(normalizedText);
   }
 
   Future<void> _deleteFavorite(String type, String value) async {
     final l = L.of(context);
-    final displayLabel = value.replaceAll('_', ' ');
+    final displayLabel = TagUtils.displayName(value);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -220,30 +256,16 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
                             itemCount: favTags.length,
                             separatorBuilder: (context, index) => const SizedBox(width: 8),
                             itemBuilder: (context, index) {
-                              final tag = favTags[index];
-                              final tagParts = tag.split(':');
-                              final type = tagParts.length > 1 ? tagParts[0] : 'tag';
-                              final value = tagParts.length > 1 ? tagParts.sublist(1).join(':') : tag;
-                              final displayTag = value.replaceAll('_', ' ');
-                              
+                              final tagLabel = favTags[index];
+                              final tagInfo = TagInfo.parse(tagLabel);
+
                               Color chipColor = colorScheme.secondaryContainer.withValues(alpha: 0.5);
                               Color iconColor = colorScheme.onSecondaryContainer;
-                              IconData icon = Icons.label_rounded;
+                              IconData icon = TagUtils.iconFor(tagInfo.type);
 
-                              if (type == 'artist') {
-                                icon = Icons.brush_rounded;
-                              } else if (type == 'group') {
-                                icon = Icons.groups_rounded;
-                              } else if (type == 'series') {
-                                icon = Icons.book_rounded;
-                              } else if (type == 'female') {
-                                icon = Icons.female_rounded;
-                                iconColor = Colors.pinkAccent;
-                                chipColor = Colors.pinkAccent.withValues(alpha: 0.1);
-                              } else if (type == 'male') {
-                                icon = Icons.male_rounded;
-                                iconColor = Colors.blueAccent;
-                                chipColor = Colors.blueAccent.withValues(alpha: 0.1);
+                              if (tagInfo.type == 'female' || tagInfo.type == 'male') {
+                                iconColor = TagUtils.colorFor(tagInfo.type, colorScheme);
+                                chipColor = TagUtils.backgroundFor(tagInfo.type, colorScheme);
                               }
 
                               return Center(
@@ -252,8 +274,8 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
                                   borderRadius: BorderRadius.circular(20),
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(20),
-                                    onTap: () => _addTagToQuery(tag),
-                                    onLongPress: () => _deleteFavorite(type, value),
+                                    onTap: () => _addTagToQuery(tagLabel),
+                                    onLongPress: () => _deleteFavorite(tagInfo.type, tagInfo.value),
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                       child: Row(
@@ -262,7 +284,7 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
                                           Icon(icon, size: 14, color: iconColor),
                                           const SizedBox(width: 6),
                                           Text(
-                                            displayTag,
+                                            tagInfo.displayLabel,
                                             style: theme.textTheme.labelSmall?.copyWith(
                                               color: iconColor,
                                               fontWeight: FontWeight.w600,
@@ -313,19 +335,12 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
   }
 
   Widget _buildSuggestionTile(TagSuggestion item, ThemeData theme, ColorScheme colorScheme) {
-    IconData icon = Icons.label_rounded;
-    Color color = colorScheme.onSurfaceVariant;
-
-    if (item.type == 'recent') {
-      icon = Icons.history_rounded;
-      color = colorScheme.secondary;
-    } else if (item.type == 'female') {
-      icon = Icons.female_rounded;
-      color = Colors.pinkAccent;
-    } else if (item.type == 'male') {
-      icon = Icons.male_rounded;
-      color = Colors.blueAccent;
-    }
+    IconData icon = item.type == 'recent'
+        ? Icons.history_rounded
+        : TagUtils.iconFor(item.type);
+    Color color = item.type == 'recent'
+        ? colorScheme.secondary
+        : TagUtils.colorFor(item.type, colorScheme);
 
     return ListTile(
       dense: true,
@@ -377,9 +392,9 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
             ),
       onTap: () {
         if (item.type == 'recent') {
-          _addTagToQuery(item.tag);
+          _replaceQuery(item.tag);
         } else {
-          _addTagToQuery('${item.type}:${item.tag.replaceAll(' ', '_')}');
+          _addTagToQuery('${item.type}:${item.tag}');
         }
       },
     );

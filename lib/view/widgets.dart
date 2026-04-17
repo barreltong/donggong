@@ -5,6 +5,7 @@ import 'package:shimmer/shimmer.dart';
 import '../core/hitomi.dart';
 import '../core/app_state.dart';
 import '../core/i18n.dart';
+import '../core/tag_utils.dart';
 import '../network/http.dart';
 import 'app_notification.dart';
 import 'detail.dart';
@@ -18,16 +19,18 @@ class GalleryGrid extends StatelessWidget {
   final ScrollController? scrollController;
   final EdgeInsetsGeometry padding;
   final Function(Gallery)? onDismissed;
-  final Function(Gallery)? onRetry; // Added callback
+  final Function(Gallery)? onRetry;
+  final void Function(String query)? onSearchTag;
 
   const GalleryGrid({
     super.key,
     required this.galleries,
     this.isLoading = false,
     this.scrollController,
-    this.padding = const EdgeInsets.all(16), 
+    this.padding = const EdgeInsets.all(16),
     this.onDismissed,
     this.onRetry,
+    this.onSearchTag,
   });
 
   @override
@@ -133,7 +136,10 @@ class GalleryGrid extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => DetailBottomSheet(galleryId: gallery.id),
+      builder: (context) => DetailBottomSheet(
+        galleryId: gallery.id,
+        onSearchTag: onSearchTag,
+      ),
     );
   }
 }
@@ -237,17 +243,23 @@ class _DetailedShimmer extends StatelessWidget {
 // Hitomi Image Widget (Infinite Retry)
 // ─────────────────────────────────────────────────────────────────────────────
 class HitomiImage extends StatefulWidget {
+  final String? imageHash;
   final String url;
   final BoxFit fit;
   final double? width;
   final double? height;
+  final bool showLoadingPlaceholder;
+  final bool showErrorIndicator;
 
   const HitomiImage({
     super.key,
+    this.imageHash,
     required this.url,
     this.fit = BoxFit.cover,
     this.width,
     this.height,
+    this.showLoadingPlaceholder = true,
+    this.showErrorIndicator = true,
   });
 
   @override
@@ -255,8 +267,28 @@ class HitomiImage extends StatefulWidget {
 }
 
 class _HitomiImageState extends State<HitomiImage> {
+  late String _currentUrl;
   int _retryCount = 0;
+  bool _isRefreshingUrl = false;
+  bool _didRefreshFromHash = false;
   bool _isDisposed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUrl = widget.url;
+  }
+
+  @override
+  void didUpdateWidget(covariant HitomiImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.url != oldWidget.url || widget.imageHash != oldWidget.imageHash) {
+      _currentUrl = widget.url;
+      _retryCount = 0;
+      _isRefreshingUrl = false;
+      _didRefreshFromHash = false;
+    }
+  }
 
   @override
   void dispose() {
@@ -265,6 +297,7 @@ class _HitomiImageState extends State<HitomiImage> {
   }
 
   void _retry() {
+    if (_isRefreshingUrl) return;
     if (_isDisposed) return;
     Future.delayed(const Duration(seconds: 2), () {
       if (!_isDisposed) {
@@ -275,10 +308,34 @@ class _HitomiImageState extends State<HitomiImage> {
     });
   }
 
+  Future<void> _refreshUrlFromHash() async {
+    if (_isDisposed || _isRefreshingUrl || widget.imageHash == null) return;
+
+    _isRefreshingUrl = true;
+    try {
+      final refreshedUrl = await HitomiManager.instance.resolveImageUrl(
+        widget.imageHash!,
+        forceRefresh: true,
+      );
+      if (_isDisposed) return;
+
+      setState(() {
+        _currentUrl = refreshedUrl;
+        _retryCount = 0;
+        _didRefreshFromHash = true;
+      });
+    } catch (_) {
+      if (_isDisposed) return;
+      _retry();
+    } finally {
+      _isRefreshingUrl = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    if (widget.url.isEmpty) {
+    if (_currentUrl.isEmpty) {
       return Container(
         width: widget.width,
         height: widget.height,
@@ -288,29 +345,37 @@ class _HitomiImageState extends State<HitomiImage> {
     }
 
     return CachedNetworkImage(
-      key: ValueKey('${widget.url}_$_retryCount'),
-      imageUrl: widget.url,
+      key: ValueKey('$_currentUrl|$_retryCount'),
+      imageUrl: _currentUrl,
       width: widget.width,
       height: widget.height,
       httpHeaders: HttpClient.defaultHeaders,
       fit: widget.fit,
-      placeholder: (context, url) => Shimmer.fromColors(
-        baseColor: colorScheme.surfaceContainerHigh,
-        highlightColor: colorScheme.surfaceContainer,
-        child: Container(color: Colors.white),
-      ),
+      placeholder: (context, url) => widget.showLoadingPlaceholder
+          ? Shimmer.fromColors(
+              baseColor: colorScheme.surfaceContainerHigh,
+              highlightColor: colorScheme.surfaceContainer,
+              child: Container(color: Colors.white),
+            )
+          : const SizedBox.expand(),
       errorWidget: (context, url, error) {
-        _retry();
-        return Container(
-          color: colorScheme.surfaceContainerHigh,
-          child: const Center(
-            child: SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ),
-        );
+        if (!_didRefreshFromHash && widget.imageHash != null) {
+          _refreshUrlFromHash();
+        } else {
+          _retry();
+        }
+        return widget.showErrorIndicator
+            ? Container(
+                color: colorScheme.surfaceContainerHigh,
+                child: const Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              )
+            : const SizedBox.expand();
       },
     );
   }
@@ -782,36 +847,20 @@ class TagChip extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final l = L.of(context);
 
-    final parts = label.split(':');
-    final type = parts.length > 1 ? parts[0] : 'tag';
-    final value = parts.length > 1 ? parts.sublist(1).join(':') : label;
-    final displayLabel = value.replaceAll('_', ' ');
+    final tag = TagInfo.parse(label);
 
     return ListenableBuilder(
       listenable: AppState.instance.favorites,
       builder: (context, _) {
-        final isFav = AppState.instance.favorites.value.isFavorite(type, value);
+        final isFav = AppState.instance.favorites.value.isFavorite(tag.type, tag.value);
 
         Color? bgColor = color;
-        Color? fgColor = colorScheme.onSurfaceVariant;
-        IconData? icon;
+        Color fgColor = colorScheme.onSurfaceVariant;
+        IconData icon = TagUtils.iconFor(tag.type);
 
-        if (type == 'female') {
-          bgColor = Colors.pinkAccent.withValues(alpha: 0.1);
-          fgColor = Colors.pinkAccent;
-          icon = Icons.female_rounded;
-        } else if (type == 'male') {
-          bgColor = Colors.blueAccent.withValues(alpha: 0.1);
-          fgColor = Colors.blueAccent;
-          icon = Icons.male_rounded;
-        } else if (type == 'artist') {
-          icon = Icons.brush_rounded;
-        } else if (type == 'series' || type == 'parody') {
-          icon = Icons.book_rounded;
-        } else if (type == 'character') {
-          icon = Icons.face_rounded;
-        } else if (type == 'group') {
-          icon = Icons.groups_rounded;
+        if (tag.type == 'female' || tag.type == 'male') {
+          bgColor = TagUtils.backgroundFor(tag.type, colorScheme);
+          fgColor = TagUtils.colorFor(tag.type, colorScheme);
         }
 
         if (isFav) {
@@ -833,7 +882,7 @@ class TagChip extends StatelessWidget {
             child: InkWell(
               onTap: onTap,
               onLongPress: () {
-                AppState.instance.toggleFavorite(type, value);
+                AppState.instance.toggleFavorite(tag.type, tag.value);
                 HapticFeedback.lightImpact();
                 AppNotification.show(
                   context,
@@ -849,12 +898,10 @@ class TagChip extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (icon != null) ...[
-                      Icon(icon, size: 14, color: fgColor),
-                      const SizedBox(width: 6),
-                    ],
+                    Icon(icon, size: 14, color: fgColor),
+                    const SizedBox(width: 6),
                     Text(
-                      displayLabel,
+                      tag.displayLabel,
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: fgColor,
                         fontWeight: isFav ? FontWeight.bold : FontWeight.w500,

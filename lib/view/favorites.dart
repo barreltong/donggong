@@ -269,6 +269,11 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     _applyListingMode(targetPage: _page + 1, append: true);
   }
 
+  void _searchTag(String query) {
+    AppState.instance.pendingSearch.value = query;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   Future<void> _showPageJumpDialog() async {
     final l = L.of(context);
     final totalPages = (_totalCount / _pageSize).ceil();
@@ -367,6 +372,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                       !isPagination && _displayGalleries.length < _totalCount,
                   scrollController: _scrollController,
                   onRetry: _retryLoading,
+                  onSearchTag: _searchTag,
                 ),
               ),
               if (isPagination) _buildPaginationBar(),

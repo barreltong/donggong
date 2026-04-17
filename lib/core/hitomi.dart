@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import '../network/http.dart';
+import 'tag_utils.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -25,11 +26,13 @@ class GalleryNotFoundException implements Exception {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class GalleryImage {
+  final String hash;
   final String url;
   final int width;
   final int height;
 
   const GalleryImage({
+    required this.hash,
     required this.url,
     required this.width,
     required this.height,
@@ -211,11 +214,14 @@ class TagSuggestion {
 class HitomiManager {
   static final HitomiManager instance = HitomiManager._();
   HitomiManager._();
+  static const Duration _ggCacheTtl = Duration(minutes: 5);
 
   // Simple In-Memory LRU Cache
   final Map<int, Gallery> _cache = {};
   final List<int> _cacheKeys = [];
   static const int _maxCacheSize = 100;
+  String? _ggScriptCache;
+  DateTime? _ggScriptFetchedAt;
 
   Gallery? _getFromCache(int id) {
     if (_cache.containsKey(id)) {
@@ -270,7 +276,8 @@ class HitomiManager {
 
   /// Search Galleries
   Future<(List<Gallery>, int)> search(String query, {int page = 1, String defaultLang = 'all'}) async {
-    final terms = query.trim().split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+    final normalizedQuery = TagUtils.normalizeQuery(query);
+    final terms = normalizedQuery.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
     if (terms.isEmpty) return (<Gallery>[], 0);
 
     final hasLang = terms.any((t) => t.startsWith('language:'));
@@ -278,9 +285,9 @@ class HitomiManager {
 
     // Helper to fetch IDs for a single term
     Future<Set<int>> fetchIds(String term) async {
-      final parts = term.split(':');
-      final area = parts[0];
-      final tag = parts.sublist(1).join(':').replaceAll('_', ' ');
+      final info = TagInfo.parse(term);
+      final area = info.type;
+      final tag = info.displayLabel;
 
       if (area == 'language') {
         final res = await HttpClient.get('${HitomiConstants.cdnBase}/index-$tag.nozomi');
@@ -374,17 +381,19 @@ class HitomiManager {
     if (cached != null && cached.images.isNotEmpty) return cached;
 
     try {
-      final responses = await Future.wait([
+      final responses = await Future.wait<Object>([
         HttpClient.fetch('${HitomiConstants.cdnBase}/galleries/$id.js'),
-        HttpClient.fetch('${HitomiConstants.cdnBase}/gg.js'),
+        _getGgScript(),
       ]);
 
-      final galleryText = responses[0].body.replaceFirst('var galleryinfo = ', '');
+      final galleryResponse = responses[0] as dynamic;
+      final galleryText = galleryResponse.body.replaceFirst('var galleryinfo = ', '');
       final galleryJson = jsonDecode(galleryText);
-      final ggScript = responses[1].body;
+      final ggScript = responses[1] as String;
 
       final files = (galleryJson['files'] as List?);
       final images = files?.map((f) => GalleryImage(
+        hash: f['hash'],
         width: f['width'],
         height: f['height'],
         url: _buildImageUrl(f['hash'], ggScript),
@@ -411,6 +420,11 @@ class HitomiManager {
     } catch (_) {
       return Gallery.empty();
     }
+  }
+
+  Future<String> resolveImageUrl(String hash, {bool forceRefresh = false}) async {
+    final ggScript = await _getGgScript(forceRefresh: forceRefresh);
+    return _buildImageUrl(hash, ggScript);
   }
 
   Future<List<TagSuggestion>> getTagSuggestions(String query) async {
@@ -441,6 +455,26 @@ class HitomiManager {
   Future<List<Gallery>> _fetchDetails(List<int> ids) async {
     final results = await Future.wait(ids.map((id) => getDetail(id)));
     return results.where((g) => g.id != 0).toList();
+  }
+
+  Future<String> _getGgScript({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+    final isFresh = !forceRefresh &&
+        _ggScriptCache != null &&
+        _ggScriptFetchedAt != null &&
+        now.difference(_ggScriptFetchedAt!) < _ggCacheTtl;
+
+    if (isFresh) return _ggScriptCache!;
+
+    final response = await HttpClient.fetch('${HitomiConstants.cdnBase}/gg.js');
+    if (response.statusCode != 200 || response.body.isEmpty) {
+      if (_ggScriptCache != null) return _ggScriptCache!;
+      throw Exception('Failed to fetch gg.js');
+    }
+
+    _ggScriptCache = response.body;
+    _ggScriptFetchedAt = now;
+    return _ggScriptCache!;
   }
 
   Set<int> _parseNozomi(Uint8List buf) {
