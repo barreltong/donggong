@@ -14,6 +14,9 @@
 # v1
 lib_v1/
 
+# refs
+/for-ai-refs
+
 # IntelliJ related
 *.iml
 *.ipr
