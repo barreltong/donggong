@@ -25,6 +25,35 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   int _loadToken = 0;
   bool _hasQueuedReload = false;
 
+  void _syncPaging({int? targetPage}) {
+    final listingMode = AppState.instance.listingMode.value;
+    final page = targetPage ?? _paging.currentPage;
+
+    if (listingMode == 'pagination') {
+      final totalCount = _allFavorites.length;
+      final safePage = totalCount == 0
+          ? 1
+          : page.clamp(1, (totalCount / HitomiConstants.pageSize).ceil());
+      final start = (safePage - 1) * HitomiConstants.pageSize;
+      final end = (start + HitomiConstants.pageSize).clamp(0, totalCount);
+
+      _paging.replaceAll(
+        _allFavorites.sublist(start, end),
+        totalCount: totalCount,
+        currentPage: safePage,
+        listingMode: listingMode,
+      );
+      return;
+    }
+
+    _paging.replaceAll(
+      _allFavorites,
+      totalCount: _allFavorites.length,
+      currentPage: page,
+      listingMode: listingMode,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -45,10 +74,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   void _onListingModeChanged() {
     if (mounted) {
-      _paging.applyListingMode(
-        AppState.instance.listingMode.value,
-        targetPage: 1,
-      );
+      _syncPaging(targetPage: 1);
       if (_scrollController.hasClients) _scrollController.jumpTo(0);
     }
   }
@@ -118,12 +144,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         _allFavorites = builtList;
         _isLoading = false;
       });
-      _paging.replaceAll(
-        builtList,
-        totalCount: builtList.length,
-        currentPage: _paging.currentPage,
-        listingMode: AppState.instance.listingMode.value,
-      );
+      _syncPaging();
 
       // 4. Fetch missing items in background (don't block UI)
       if (missingIds.isNotEmpty) {
@@ -210,12 +231,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             }
 
             _allFavorites = newList;
-            _paging.replaceAll(
-              newList,
-              totalCount: newList.length,
-              currentPage: _paging.currentPage,
-              listingMode: AppState.instance.listingMode.value,
-            );
+            _syncPaging();
           });
         }
       }
@@ -246,12 +262,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       setState(() {
         _allFavorites[initialIndex] = Gallery.loading(gallery.id);
       });
-      _paging.replaceAll(
-        _allFavorites,
-        totalCount: _allFavorites.length,
-        currentPage: _paging.currentPage,
-        listingMode: AppState.instance.listingMode.value,
-      );
+      _syncPaging();
     }
 
     try {
@@ -265,12 +276,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           setState(() {
             _allFavorites[currentIndex] = fetched;
           });
-          _paging.replaceAll(
-            _allFavorites,
-            totalCount: _allFavorites.length,
-            currentPage: _paging.currentPage,
-            listingMode: AppState.instance.listingMode.value,
-          );
+          _syncPaging();
           await DbManager.cacheGallery(
             fetched.id,
             jsonEncode(fetched.toJson()),
@@ -286,12 +292,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         setState(() {
           _allFavorites[currentIndex] = Gallery.error(gallery.id);
         });
-        _paging.replaceAll(
-          _allFavorites,
-          totalCount: _allFavorites.length,
-          currentPage: _paging.currentPage,
-          listingMode: AppState.instance.listingMode.value,
-        );
+        _syncPaging();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Retrying ${gallery.id} failed again.')),
         );
@@ -301,10 +302,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   void _loadMore() {
     if (_isLoading || !_paging.canLoadMore) return;
-    _paging.applyListingMode(
-      AppState.instance.listingMode.value,
-      targetPage: _paging.currentPage + 1,
-    );
+    _syncPaging(targetPage: _paging.currentPage + 1);
   }
 
   void _searchTag(String query) {
@@ -357,10 +355,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
 
     if (jumpPage != null) {
-      _paging.applyListingMode(
-        AppState.instance.listingMode.value,
-        targetPage: jumpPage,
-      );
+      _syncPaging(targetPage: jumpPage);
       if (_scrollController.hasClients) _scrollController.jumpTo(0);
     }
   }
@@ -453,10 +448,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               icon: const Icon(Icons.first_page_rounded),
               onPressed: _paging.currentPage > 1
                   ? () {
-                      _paging.applyListingMode(
-                        AppState.instance.listingMode.value,
-                        targetPage: 1,
-                      );
+                      _syncPaging(targetPage: 1);
                       if (_scrollController.hasClients) {
                         _scrollController.jumpTo(0);
                       }
@@ -467,10 +459,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               icon: const Icon(Icons.chevron_left_rounded),
               onPressed: _paging.currentPage > 1
                   ? () {
-                      _paging.applyListingMode(
-                        AppState.instance.listingMode.value,
-                        targetPage: _paging.currentPage - 1,
-                      );
+                      _syncPaging(targetPage: _paging.currentPage - 1);
                       if (_scrollController.hasClients) {
                         _scrollController.jumpTo(0);
                       }
@@ -504,10 +493,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               icon: const Icon(Icons.chevron_right_rounded),
               onPressed: _paging.currentPage < totalPages
                   ? () {
-                      _paging.applyListingMode(
-                        AppState.instance.listingMode.value,
-                        targetPage: _paging.currentPage + 1,
-                      );
+                      _syncPaging(targetPage: _paging.currentPage + 1);
                       if (_scrollController.hasClients) {
                         _scrollController.jumpTo(0);
                       }
@@ -518,10 +504,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               icon: const Icon(Icons.last_page_rounded),
               onPressed: _paging.currentPage < totalPages
                   ? () {
-                      _paging.applyListingMode(
-                        AppState.instance.listingMode.value,
-                        targetPage: totalPages,
-                      );
+                      _syncPaging(targetPage: totalPages);
                       if (_scrollController.hasClients) {
                         _scrollController.jumpTo(0);
                       }
