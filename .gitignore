@@ -37,6 +37,9 @@ for-ai-refs/
 .pub/
 /build/
 /coverage/
+/android/key.properties
+/android/app/*.jks
+/android/app/*.keystore
 
 # Symbolication related
 app.*.symbols

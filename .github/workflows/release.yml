@@ -31,6 +31,17 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
+      - name: Restore Android Keystore
+        shell: bash
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release-keystore.jks
+          cat <<EOF > android/key.properties
+          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=app/release-keystore.jks
+          EOF
+
       - name: Build Release APK
         run: flutter build apk --release
 
