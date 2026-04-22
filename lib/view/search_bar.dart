@@ -11,6 +11,7 @@ class HomeSearchBar extends StatefulWidget {
   final String query;
   final Function(String) onSubmitted;
   final VoidCallback onMenuPressed;
+  final ValueChanged<bool>? onFocusChanged;
 
   const HomeSearchBar({
     super.key,
@@ -18,29 +19,35 @@ class HomeSearchBar extends StatefulWidget {
     this.query = '',
     required this.onSubmitted,
     required this.onMenuPressed,
+    this.onFocusChanged,
   });
 
   @override
   State<HomeSearchBar> createState() => _HomeSearchBarState();
 }
 
-class _HomeSearchBarState extends State<HomeSearchBar> {
+class _HomeSearchBarState extends State<HomeSearchBar>
+    with WidgetsBindingObserver {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final LayerLink _layerLink = LayerLink();
   
   OverlayEntry? _overlayEntry;
   List<TagSuggestion> _suggestions = [];
+  int _suggestionRequestId = 0;
   
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _controller.text = widget.query;
     _focusNode.addListener(() {
+      widget.onFocusChanged?.call(_focusNode.hasFocus);
       if (_focusNode.hasFocus) {
         _updateOverlay(); // Show overlay immediately on focus
         _onTextChanged(_controller.text);
       } else {
+        _suggestionRequestId++;
         _hideOverlay();
       }
     });
@@ -48,10 +55,25 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _hideOverlay();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    final keyboardInset =
+        WidgetsBinding.instance.platformDispatcher.views.first.viewInsets.bottom;
+    if (keyboardInset == 0 && _overlayEntry != null) {
+      _suggestionRequestId++;
+      _hideOverlay();
+      if (_focusNode.hasFocus) {
+        _focusNode.unfocus();
+      }
+    }
   }
 
   @override
@@ -85,12 +107,16 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
   }
 
   Future<void> _onTextChanged(String text) async {
+    final requestId = ++_suggestionRequestId;
+
     if (text.isEmpty || text.endsWith(' ')) {
       // Show recent history
       final recent = AppState.instance.recentSearches.value;
-      if (mounted) {
+      if (mounted && _focusNode.hasFocus && requestId == _suggestionRequestId) {
         setState(() {
-          _suggestions = recent.map((e) => TagSuggestion(tag: e, type: 'recent', count: 0)).toList();
+          _suggestions = recent
+              .map((e) => TagSuggestion(tag: e, type: 'recent', count: 0))
+              .toList();
         });
         _updateOverlay();
       }
@@ -102,12 +128,16 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
 
     try {
       final suggestions = await HitomiManager.instance.getTagSuggestions(lastToken);
-      if (mounted) {
+      if (mounted &&
+          _focusNode.hasFocus &&
+          requestId == _suggestionRequestId) {
         setState(() => _suggestions = suggestions);
         _updateOverlay();
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted &&
+          _focusNode.hasFocus &&
+          requestId == _suggestionRequestId) {
         setState(() => _suggestions = []);
         _hideOverlay(); // Hide if no suggestions and not empty text (to show favs? No, hide)
       }
@@ -437,6 +467,7 @@ class _HomeSearchBarState extends State<HomeSearchBar> {
                   controller: _controller,
                   focusNode: _focusNode,
                   textAlignVertical: TextAlignVertical.center, // Ensure text is centered vertically
+                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
                   decoration: InputDecoration(
                     hintText: l.searchHint,
                     hintStyle: TextStyle(

@@ -23,6 +23,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = false;
   String _query = '';
   bool _showFab = false;
+  bool _isSearchFocused = false;
+  int _loadToken = 0;
+  bool _hasQueuedLoad = false;
+  bool _queuedRefresh = false;
+  int? _queuedTargetPage;
 
   @override
   void initState() {
@@ -82,28 +87,44 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadData({bool refresh = false, int? targetPage}) async {
-    if (_isLoading) return;
+    final token = ++_loadToken;
+    await _performLoad(token, refresh: refresh, targetPage: targetPage);
+  }
 
+  Future<void> _performLoad(
+    int token, {
+    required bool refresh,
+    int? targetPage,
+  }) async {
     final pageToLoad = targetPage ?? _page;
+    final queryAtRequest = _query;
+    final defaultLang = AppState.instance.defaultLanguage.value;
+    final listingModeAtRequest = AppState.instance.listingMode.value;
+
+    if (_isLoading) {
+      _hasQueuedLoad = true;
+      _queuedRefresh = _queuedRefresh || refresh;
+      _queuedTargetPage = targetPage;
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
-      final defaultLang = AppState.instance.defaultLanguage.value;
-      final result = _query.isEmpty
+      final result = queryAtRequest.isEmpty
           ? await HitomiManager.instance.getList(
               page: pageToLoad,
               lang: defaultLang,
             )
           : await HitomiManager.instance.search(
-              _query,
+              queryAtRequest,
               page: pageToLoad,
               defaultLang: defaultLang,
             );
 
-      if (mounted) {
+      if (mounted && token == _loadToken) {
         setState(() {
-          if (refresh || AppState.instance.listingMode.value == 'pagination') {
+          if (refresh || listingModeAtRequest == 'pagination') {
             _galleries = result.$1;
           } else {
             _galleries.addAll(result.$1);
@@ -119,11 +140,29 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
+      if (mounted && token == _loadToken) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) {
+        if (_isLoading) {
+          setState(() => _isLoading = false);
+        }
+
+        if (_hasQueuedLoad) {
+          final queuedRefresh = _queuedRefresh;
+          final queuedTargetPage = _queuedTargetPage;
+          _hasQueuedLoad = false;
+          _queuedRefresh = false;
+          _queuedTargetPage = null;
+          await _performLoad(
+            _loadToken,
+            refresh: queuedRefresh,
+            targetPage: queuedTargetPage,
+          );
+        }
       }
     }
   }
@@ -133,6 +172,8 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _query = normalizedQuery;
       _page = 1;
+      _galleries = [];
+      _totalCount = 0;
     });
     if (normalizedQuery.isNotEmpty) {
       AppState.instance.addRecentSearch(normalizedQuery);
@@ -195,9 +236,18 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final l = L.of(context);
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
+    return PopScope(
+      canPop: !_isSearchFocused && _query.isEmpty,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        FocusScope.of(context).unfocus();
+        if (_query.isNotEmpty) {
+          _onSearchSubmitted('');
+        }
+      },
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Scaffold(
         key: _scaffoldKey,
         appBar: AppBar(
           toolbarHeight: 80, // Increased for search bar breathing room
@@ -205,7 +255,15 @@ class _HomeScreenState extends State<HomeScreen> {
           title: HomeSearchBar(
             query: _query,
             onSubmitted: _onSearchSubmitted,
-            onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            onMenuPressed: () {
+              FocusScope.of(context).unfocus();
+              _scaffoldKey.currentState?.openDrawer();
+            },
+            onFocusChanged: (hasFocus) {
+              if (_isSearchFocused != hasFocus && mounted) {
+                setState(() => _isSearchFocused = hasFocus);
+              }
+            },
           ),
           automaticallyImplyLeading: false,
         ),
@@ -225,6 +283,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _buildBody(l, isPagination),
             );
           },
+        ),
         ),
       ),
     );
