@@ -25,26 +25,26 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   int _loadToken = 0;
   bool _hasQueuedReload = false;
 
+  List<Gallery> get _visibleFavorites {
+    if (AppState.instance.listingMode.value != 'pagination') {
+      return _paging.visibleItems;
+    }
+
+    final totalCount = _allFavorites.length;
+    if (totalCount == 0) return const [];
+
+    final safePage = _paging.currentPage.clamp(
+      1,
+      (totalCount / HitomiConstants.pageSize).ceil(),
+    );
+    final start = (safePage - 1) * HitomiConstants.pageSize;
+    final end = (start + HitomiConstants.pageSize).clamp(0, totalCount);
+    return _allFavorites.sublist(start, end);
+  }
+
   void _syncPaging({int? targetPage}) {
     final listingMode = AppState.instance.listingMode.value;
     final page = targetPage ?? _paging.currentPage;
-
-    if (listingMode == 'pagination') {
-      final totalCount = _allFavorites.length;
-      final safePage = totalCount == 0
-          ? 1
-          : page.clamp(1, (totalCount / HitomiConstants.pageSize).ceil());
-      final start = (safePage - 1) * HitomiConstants.pageSize;
-      final end = (start + HitomiConstants.pageSize).clamp(0, totalCount);
-
-      _paging.replaceAll(
-        _allFavorites.sublist(start, end),
-        totalCount: totalCount,
-        currentPage: safePage,
-        listingMode: listingMode,
-      );
-      return;
-    }
 
     _paging.replaceAll(
       _allFavorites,
@@ -373,7 +373,10 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         ),
       ),
       body: ListenableBuilder(
-        listenable: AppState.instance.listingMode,
+        listenable: Listenable.merge([
+          AppState.instance.listingMode,
+          _paging,
+        ]),
         builder: (context, _) {
           final isPagination =
               AppState.instance.listingMode.value == 'pagination';
@@ -403,7 +406,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             children: [
               Expanded(
                 child: GalleryGrid(
-                  galleries: _paging.visibleItems,
+                  galleries: _visibleFavorites,
                   isLoading: !isPagination && _paging.canLoadMore,
                   scrollController: _scrollController,
                   onRetry: _retryLoading,
