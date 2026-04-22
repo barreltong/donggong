@@ -267,10 +267,28 @@ class _DetailBottomSheetState extends State<DetailBottomSheet> {
         ),
         const SizedBox(height: 32),
         
-        _buildTagSection(l.artist, gallery.artists.map((a) => 'artist:$a').toList(), l),
-        _buildTagSection(l.group, gallery.groups.map((g) => 'group:$g').toList(), l),
-        _buildTagSection(l.gallerySeries, gallery.parodys, l),
-        _buildTagSection(l.galleryCharacters, gallery.characters, l),
+        _buildTagSection(
+          l.artist,
+          gallery.artists.map((artist) => 'artist:$artist').toList(),
+          l,
+        ),
+        _buildTagSection(
+          l.group,
+          gallery.groups.map((group) => 'group:$group').toList(),
+          l,
+        ),
+        _buildTagSection(
+          l.gallerySeries,
+          gallery.parodys.map((series) => 'series:$series').toList(),
+          l,
+        ),
+        _buildTagSection(
+          l.galleryCharacters,
+          gallery.characters
+              .map((character) => 'character:$character')
+              .toList(),
+          l,
+        ),
         _buildTagSection(l.galleryTags, gallery.tags, l),
       ],
     );
