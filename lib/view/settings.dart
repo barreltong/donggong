@@ -17,6 +17,30 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  String _compactDoublePageOrderLabel(L l, String value) {
+    final isKo = l.locale.languageCode == 'ko';
+    switch (value) {
+      case 'japanese':
+        return isKo ? '일본식' : 'Japanese RTL';
+      case 'international':
+        return isKo ? '국제식' : 'Intl LTR';
+      default:
+        return value;
+    }
+  }
+
+  String _compactPageTurnLabel(L l, String value) {
+    final isKo = l.locale.languageCode == 'ko';
+    switch (value) {
+      case 'left':
+        return isKo ? '왼쪽' : 'Left';
+      case 'right':
+        return isKo ? '오른쪽' : 'Right';
+      default:
+        return value;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -251,6 +275,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         DropdownMenuItem(
                           value: 'doublePage',
                           child: Text(l.doublePage),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              _buildSettingItem(
+                context,
+                icon: Icons.chrome_reader_mode_rounded,
+                title: l.doublePageOrder,
+                trailing: ListenableBuilder(
+                  listenable: AppState.instance.doublePageOrder,
+                  builder: (context, _) {
+                    return DropdownButton<String>(
+                      value: AppState.instance.doublePageOrder.value,
+                      underline: const SizedBox(),
+                      isDense: true,
+                      selectedItemBuilder: (context) => [
+                        Text(_compactDoublePageOrderLabel(l, 'japanese')),
+                        Text(_compactDoublePageOrderLabel(l, 'international')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          AppState.instance.updateSetting(
+                            'doublePageOrder',
+                            val,
+                          );
+                        }
+                      },
+                      items: [
+                        DropdownMenuItem(
+                          value: 'japanese',
+                          child: Text(l.doublePageJapanese),
+                        ),
+                        DropdownMenuItem(
+                          value: 'international',
+                          child: Text(l.doublePageInternational),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              _buildSettingItem(
+                context,
+                icon: Icons.swipe_rounded,
+                title: l.pageTurnDirection,
+                trailing: ListenableBuilder(
+                  listenable: AppState.instance.pageTurnDirection,
+                  builder: (context, _) {
+                    return DropdownButton<String>(
+                      value: AppState.instance.pageTurnDirection.value,
+                      underline: const SizedBox(),
+                      isDense: true,
+                      selectedItemBuilder: (context) => [
+                        Text(_compactPageTurnLabel(l, 'left')),
+                        Text(_compactPageTurnLabel(l, 'right')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          AppState.instance.updateSetting(
+                            'pageTurnDirection',
+                            val,
+                          );
+                        }
+                      },
+                      items: [
+                        DropdownMenuItem(
+                          value: 'left',
+                          child: Text(l.pageTurnLeft),
+                        ),
+                        DropdownMenuItem(
+                          value: 'right',
+                          child: Text(l.pageTurnRight),
                         ),
                       ],
                     );
@@ -511,7 +609,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final jsonString = await file.readAsString();
         final Map<String, dynamic> jsonMap = jsonDecode(jsonString);
 
-        final isDonggongFormat = jsonMap.containsKey('favoriteId') ||
+        final isDonggongFormat =
+            jsonMap.containsKey('favoriteId') ||
             jsonMap.containsKey('favoriteArtist') ||
             jsonMap.containsKey('favoriteTag') ||
             jsonMap.containsKey('favoriteLanguage') ||
@@ -519,14 +618,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             jsonMap.containsKey('favoriteParody') ||
             jsonMap.containsKey('favoriteCharacter');
 
-        final isPupilFormat = jsonMap.containsKey('favorites') ||
+        final isPupilFormat =
+            jsonMap.containsKey('favorites') ||
             jsonMap.containsKey('favorite_tags');
 
         final newFavs = isDonggongFormat
             ? Favorites.fromDonggongJson(jsonMap)
             : isPupilFormat
-                ? Favorites.fromPupilJson(jsonMap)
-                : throw const FormatException('Unsupported favorites format');
+            ? Favorites.fromPupilJson(jsonMap)
+            : throw const FormatException('Unsupported favorites format');
 
         await AppState.instance.importFavorites(newFavs);
 

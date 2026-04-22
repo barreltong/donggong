@@ -102,9 +102,9 @@ class Favorites {
       case 'character':
       case 'series':
       case 'language':
-        return _stringSetForType(canonicalType)!.contains(
-          _normalizeValue(stringValue),
-        );
+        return _stringSetForType(
+          canonicalType,
+        )!.contains(_normalizeValue(stringValue));
       default:
         return _isTagType(canonicalType)
             ? tags.contains(TagUtils.buildKey(canonicalType, stringValue))
@@ -306,6 +306,12 @@ class AppState {
   final ValueNotifier<String> readerMode = ValueNotifier(
     'verticalPage',
   ); // 'verticalPage' | 'horizontalPage' | 'webtoon'
+  final ValueNotifier<String> doublePageOrder = ValueNotifier(
+    'japanese',
+  ); // 'japanese' | 'international'
+  final ValueNotifier<String> pageTurnDirection = ValueNotifier(
+    'left',
+  ); // 'left' | 'right'
   final ValueNotifier<String> cardViewMode = ValueNotifier(
     'detailed',
   ); // 'thumbnail' | 'detailed'
@@ -349,6 +355,12 @@ class AppState {
     if (settings.containsKey('readerMode')) {
       readerMode.value = settings['readerMode']!;
     }
+    if (settings.containsKey('doublePageOrder')) {
+      doublePageOrder.value = settings['doublePageOrder']!;
+    }
+    if (settings.containsKey('pageTurnDirection')) {
+      pageTurnDirection.value = settings['pageTurnDirection']!;
+    }
     if (settings.containsKey('cardViewMode')) {
       cardViewMode.value = settings['cardViewMode']!;
     }
@@ -370,6 +382,12 @@ class AppState {
         break;
       case 'readerMode':
         readerMode.value = value;
+        break;
+      case 'doublePageOrder':
+        doublePageOrder.value = value;
+        break;
+      case 'pageTurnDirection':
+        pageTurnDirection.value = value;
         break;
       case 'cardViewMode':
         cardViewMode.value = value;

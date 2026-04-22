@@ -5,6 +5,7 @@ import '../core/hitomi.dart';
 import '../core/app_state.dart';
 import '../core/i18n.dart';
 import '../network/http.dart';
+import 'app_notification.dart';
 import 'widgets.dart';
 import 'detail.dart'; // For bottom sheet info
 
@@ -32,12 +33,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    _galleryFuture = HitomiManager.instance.getReaderData(widget.galleryId).then((gallery) {
-      if (!gallery.isError && gallery.images.isNotEmpty) {
-        AppState.instance.addToHistory(gallery);
-      }
-      return gallery;
-    });
+    _galleryFuture = HitomiManager.instance
+        .getReaderData(widget.galleryId)
+        .then((gallery) {
+          if (!gallery.isError && gallery.images.isNotEmpty) {
+            AppState.instance.addToHistory(gallery);
+          }
+          return gallery;
+        });
     _scrollController.addListener(_onWebtoonScroll);
   }
 
@@ -52,7 +55,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   void _onWebtoonScroll() {
     if (!_scrollController.hasClients || _totalPages == 0) return;
-    final progress = _scrollController.offset / _scrollController.position.maxScrollExtent;
+    final progress =
+        _scrollController.offset / _scrollController.position.maxScrollExtent;
     final page = (progress * (_totalPages - 1)).round();
     if (page != _currentPageNotifier.value) {
       _updateCurrentPage(page);
@@ -64,7 +68,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   void _onPageChanged(Gallery gallery, int index) {
-    final page = _viewportIndexToPage(AppState.instance.readerMode.value, index);
+    final page = _viewportIndexToPage(
+      AppState.instance.readerMode.value,
+      index,
+    );
     _updateCurrentPage(page);
     _preloadUpcomingImages(gallery, page);
   }
@@ -91,10 +98,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       if (!mounted) return;
 
       await precacheImage(
-        CachedNetworkImageProvider(
-          url,
-          headers: HttpClient.defaultHeaders,
-        ),
+        CachedNetworkImageProvider(url, headers: HttpClient.defaultHeaders),
         context,
       );
     } catch (_) {}
@@ -113,8 +117,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final mode = AppState.instance.readerMode.value;
     if (mode == 'webtoon') {
       if (_scrollController.hasClients) {
-        final offset = (page / (_totalPages - 1)) * _scrollController.position.maxScrollExtent;
-        _scrollController.jumpTo(offset);
+        if (_totalPages <= 1) {
+          _scrollController.jumpTo(0);
+        } else {
+          final offset =
+              (page / (_totalPages - 1)) *
+              _scrollController.position.maxScrollExtent;
+          _scrollController.jumpTo(offset);
+        }
       }
     } else {
       if (_pageController.hasClients) {
@@ -146,14 +156,27 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return max > 0 ? max.toDouble() : 1;
   }
 
+  ({int? leftIndex, int? rightIndex}) _spreadPageIndices(int spreadIndex) {
+    final baseIndex = spreadIndex * 2;
+    final isJapanese = AppState.instance.doublePageOrder.value == 'japanese';
+    final leftIndex = isJapanese ? baseIndex + 1 : baseIndex;
+    final rightIndex = isJapanese ? baseIndex : baseIndex + 1;
+
+    return (
+      leftIndex: leftIndex < _totalPages ? leftIndex : null,
+      rightIndex: rightIndex < _totalPages ? rightIndex : null,
+    );
+  }
+
   String _currentPageLabel(String mode, int currentPage) {
     if (mode != 'doublePage') return '${currentPage + 1}';
 
-    final secondPage = currentPage + 1;
-    if (secondPage < _totalPages) {
-      return '${currentPage + 1}-${secondPage + 1}';
-    }
-    return '${currentPage + 1}';
+    final spread = _spreadPageIndices(currentPage ~/ 2);
+    final labels = <String>[
+      if (spread.leftIndex != null) '${spread.leftIndex! + 1}',
+      if (spread.rightIndex != null) '${spread.rightIndex! + 1}',
+    ];
+    return labels.join('-');
   }
 
   void _syncViewportForMode(String mode) {
@@ -170,11 +193,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
     });
   }
 
-  Widget _buildReaderPage(GalleryImage image, {double? width, double? height}) {
+  Widget _buildReaderPage(
+    GalleryImage image, {
+    double? width,
+    double? height,
+    Alignment alignment = Alignment.center,
+  }) {
     return HitomiImage(
       imageHash: image.hash,
       url: image.url,
       fit: BoxFit.contain,
+      alignment: alignment,
       width: width,
       height: height,
       showLoadingPlaceholder: false,
@@ -183,11 +212,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   Widget _buildDoublePageSpread(Gallery gallery, int spreadIndex) {
-    final leftIndex = spreadIndex * 2;
-    final rightIndex = leftIndex + 1;
-    final leftPage = gallery.images[leftIndex];
-    final rightPage = rightIndex < gallery.images.length
-        ? gallery.images[rightIndex]
+    final spread = _spreadPageIndices(spreadIndex);
+    final leftPage = spread.leftIndex != null
+        ? gallery.images[spread.leftIndex!]
+        : null;
+    final rightPage = spread.rightIndex != null
+        ? gallery.images[spread.rightIndex!]
         : null;
 
     return InteractiveViewer(
@@ -196,19 +226,29 @@ class _ReaderScreenState extends State<ReaderScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: _buildReaderPage(leftPage),
+            child: ClipRect(
+              child: SizedBox.expand(
+                child: leftPage != null
+                    ? _buildReaderPage(
+                        leftPage,
+                        width: double.infinity,
+                        height: double.infinity,
+                        alignment: Alignment.centerRight,
+                      )
+                    : const SizedBox.shrink(),
               ),
             ),
           ),
           Expanded(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 4),
+            child: ClipRect(
+              child: SizedBox.expand(
                 child: rightPage != null
-                    ? _buildReaderPage(rightPage)
+                    ? _buildReaderPage(
+                        rightPage,
+                        width: double.infinity,
+                        height: double.infinity,
+                        alignment: Alignment.centerLeft,
+                      )
                     : const SizedBox.shrink(),
               ),
             ),
@@ -231,9 +271,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           controller: controller,
           autofocus: true,
           keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            hintText: l.pageJumpHint(_totalPages),
-          ),
+          decoration: InputDecoration(hintText: l.pageJumpHint(_totalPages)),
           onSubmitted: (val) {
             final page = int.tryParse(val);
             if (page != null && page >= 1 && page <= _totalPages) {
@@ -242,7 +280,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
           },
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(l.cancel),
+          ),
           TextButton(
             onPressed: () {
               final page = int.tryParse(controller.text);
@@ -250,7 +291,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 Navigator.pop(context, page);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l.pageJumpInvalid), duration: const Duration(seconds: 1)),
+                  SnackBar(
+                    content: Text(l.pageJumpInvalid),
+                    duration: const Duration(seconds: 1),
+                  ),
                 );
               }
             },
@@ -278,8 +322,15 @@ class _ReaderScreenState extends State<ReaderScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (snapshot.hasError || !snapshot.hasData || snapshot.data!.images.isEmpty) {
-            return Center(child: Text(l.galleryFailedLoad, style: const TextStyle(color: Colors.white)));
+          if (snapshot.hasError ||
+              !snapshot.hasData ||
+              snapshot.data!.images.isEmpty) {
+            return Center(
+              child: Text(
+                l.galleryFailedLoad,
+                style: const TextStyle(color: Colors.white),
+              ),
+            );
           }
 
           final gallery = snapshot.data!;
@@ -291,9 +342,15 @@ class _ReaderScreenState extends State<ReaderScreen> {
               GestureDetector(
                 onTap: () => setState(() => _showControls = !_showControls),
                 child: ListenableBuilder(
-                  listenable: AppState.instance.readerMode,
+                  listenable: Listenable.merge([
+                    AppState.instance.readerMode,
+                    AppState.instance.doublePageOrder,
+                    AppState.instance.pageTurnDirection,
+                  ]),
                   builder: (context, _) {
                     final mode = AppState.instance.readerMode.value;
+                    final isHorizontalPaging =
+                        mode == 'horizontalPage' || mode == 'doublePage';
                     _syncViewportForMode(mode);
                     if (mode == 'webtoon') {
                       return ListView.builder(
@@ -304,7 +361,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
                           return _buildReaderPage(
                             gallery.images[index],
                             width: MediaQuery.of(context).size.width,
-                            height: (gallery.images[index].height / gallery.images[index].width) * 
+                            height:
+                                (gallery.images[index].height /
+                                    gallery.images[index].width) *
                                 MediaQuery.of(context).size.width,
                           );
                         },
@@ -312,9 +371,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     } else {
                       return PageView.builder(
                         controller: _pageController,
-                        scrollDirection: mode == 'verticalPage' ? Axis.vertical : Axis.horizontal,
+                        reverse:
+                            isHorizontalPaging &&
+                            AppState.instance.pageTurnDirection.value ==
+                                'right',
+                        scrollDirection: mode == 'verticalPage'
+                            ? Axis.vertical
+                            : Axis.horizontal,
                         itemCount: _viewportCount(mode),
-                        onPageChanged: (index) => _onPageChanged(gallery, index),
+                        onPageChanged: (index) =>
+                            _onPageChanged(gallery, index),
                         itemBuilder: (context, index) {
                           if (mode == 'doublePage') {
                             return _buildDoublePageSpread(gallery, index);
@@ -333,7 +399,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   },
                 ),
               ),
-              
+
               // Top Bar
               AnimatedPositioned(
                 duration: const Duration(milliseconds: 200),
@@ -350,24 +416,138 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         Expanded(
                           child: Text(
                             gallery.title,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         // Reader Mode Toggle
                         PopupMenuButton<String>(
-                          icon: const Icon(Icons.settings_display, color: Colors.white),
-                          onSelected: (val) => AppState.instance.updateSetting('readerMode', val),
+                          icon: const Icon(
+                            Icons.settings_display,
+                            color: Colors.white,
+                          ),
+                          onSelected: (val) => AppState.instance.updateSetting(
+                            'readerMode',
+                            val,
+                          ),
                           itemBuilder: (context) => [
-                            PopupMenuItem(value: 'verticalPage', child: Text(l.verticalPage)),
-                            PopupMenuItem(value: 'horizontalPage', child: Text(l.horizontalPage)),
-                            PopupMenuItem(value: 'doublePage', child: Text(l.doublePage)),
-                            PopupMenuItem(value: 'webtoon', child: Text(l.webtoon)),
+                            PopupMenuItem(
+                              value: 'verticalPage',
+                              child: Text(l.verticalPage),
+                            ),
+                            PopupMenuItem(
+                              value: 'horizontalPage',
+                              child: Text(l.horizontalPage),
+                            ),
+                            PopupMenuItem(
+                              value: 'doublePage',
+                              child: Text(l.doublePage),
+                            ),
+                            PopupMenuItem(
+                              value: 'webtoon',
+                              child: Text(l.webtoon),
+                            ),
                           ],
                         ),
+                        ListenableBuilder(
+                          listenable: Listenable.merge([
+                            AppState.instance.readerMode,
+                            AppState.instance.doublePageOrder,
+                          ]),
+                          builder: (context, _) {
+                            if (AppState.instance.readerMode.value !=
+                                'doublePage') {
+                              return const SizedBox.shrink();
+                            }
+
+                            return PopupMenuButton<String>(
+                              icon: const Icon(
+                                Icons.chrome_reader_mode_rounded,
+                                color: Colors.white,
+                              ),
+                              onSelected: (val) => AppState.instance
+                                  .updateSetting('doublePageOrder', val),
+                              itemBuilder: (context) => [
+                                PopupMenuItem(
+                                  value: 'japanese',
+                                  child: Text(l.doublePageJapanese),
+                                ),
+                                PopupMenuItem(
+                                  value: 'international',
+                                  child: Text(l.doublePageInternational),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        ListenableBuilder(
+                          listenable: Listenable.merge([
+                            AppState.instance.readerMode,
+                            AppState.instance.pageTurnDirection,
+                          ]),
+                          builder: (context, _) {
+                            if (AppState.instance.readerMode.value ==
+                                'webtoon') {
+                              return const SizedBox.shrink();
+                            }
+
+                            return PopupMenuButton<String>(
+                              icon: const Icon(
+                                Icons.swipe_rounded,
+                                color: Colors.white,
+                              ),
+                              onSelected: (val) => AppState.instance
+                                  .updateSetting('pageTurnDirection', val),
+                              itemBuilder: (context) => [
+                                PopupMenuItem(
+                                  value: 'left',
+                                  child: Text(l.pageTurnLeft),
+                                ),
+                                PopupMenuItem(
+                                  value: 'right',
+                                  child: Text(l.pageTurnRight),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        ListenableBuilder(
+                          listenable: AppState.instance.favorites,
+                          builder: (context, _) {
+                            final isFav = AppState.instance.favorites.value
+                                .isFavorite('gallery', gallery.id);
+
+                            return IconButton(
+                              icon: Icon(
+                                isFav
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                color: isFav ? Colors.redAccent : Colors.white,
+                              ),
+                              onPressed: () async {
+                                await AppState.instance.toggleFavorite(
+                                  'gallery',
+                                  gallery.id.toString(),
+                                  gallery: gallery,
+                                );
+                                if (!mounted) return;
+                                AppNotification.show(
+                                  this.context,
+                                  isFav ? l.removedFromFav : l.addedToFav,
+                                );
+                              },
+                            );
+                          },
+                        ),
                         IconButton(
-                          icon: const Icon(Icons.info_outline, color: Colors.white),
+                          icon: const Icon(
+                            Icons.info_outline,
+                            color: Colors.white,
+                          ),
                           onPressed: () {
                             showModalBottomSheet(
                               context: context,
@@ -377,7 +557,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                 galleryId: gallery.id,
                                 onSearchTag: (query) {
                                   AppState.instance.pendingSearch.value = query;
-                                  Navigator.of(context).popUntil((route) => route.isFirst);
+                                  Navigator.of(
+                                    context,
+                                  ).popUntil((route) => route.isFirst);
                                 },
                               ),
                             );
@@ -401,7 +583,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   child: SafeArea(
                     top: false,
                     child: ListenableBuilder(
-                      listenable: AppState.instance.readerMode,
+                      listenable: Listenable.merge([
+                        AppState.instance.readerMode,
+                        AppState.instance.doublePageOrder,
+                      ]),
                       builder: (context, _) {
                         return ValueListenableBuilder<int>(
                           valueListenable: _currentPageNotifier,
@@ -412,16 +597,25 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                 InkWell(
                                   onTap: _showPageJumpDialog,
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
                                     child: Text(
                                       _currentPageLabel(mode, currentPage),
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                 ),
                                 Expanded(
                                   child: Slider(
-                                    value: _sliderValue(mode, currentPage).clamp(0, _sliderMax(mode)),
+                                    value: _sliderValue(
+                                      mode,
+                                      currentPage,
+                                    ).clamp(0, _sliderMax(mode)),
                                     min: 0,
                                     max: _sliderMax(mode),
                                     onChanged: (value) => _jumpToPage(
@@ -433,10 +627,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                 InkWell(
                                   onTap: _showPageJumpDialog,
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
                                     child: Text(
                                       '$_totalPages',
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                 ),

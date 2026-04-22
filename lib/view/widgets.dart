@@ -39,7 +39,7 @@ class GalleryGrid extends StatelessWidget {
       listenable: AppState.instance.cardViewMode,
       builder: (context, _) {
         final isDetailed = AppState.instance.cardViewMode.value == 'detailed';
-        
+
         if (isDetailed) {
           return ListView.separated(
             controller: scrollController,
@@ -77,7 +77,7 @@ class GalleryGrid extends StatelessWidget {
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
               maxCrossAxisExtent: 180,
-              childAspectRatio: 0.72, 
+              childAspectRatio: 0.72,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
             ),
@@ -125,7 +125,7 @@ class GalleryGrid extends StatelessWidget {
   void _onTap(BuildContext context, Gallery gallery) {
     if (gallery.isError) {
       if (onRetry != null) onRetry!(gallery);
-      return; 
+      return;
     }
     Navigator.pushNamed(context, '/reader', arguments: {'id': gallery.id});
     AppState.instance.addToHistory(gallery);
@@ -136,10 +136,8 @@ class GalleryGrid extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => DetailBottomSheet(
-        galleryId: gallery.id,
-        onSearchTag: onSearchTag,
-      ),
+      builder: (context) =>
+          DetailBottomSheet(galleryId: gallery.id, onSearchTag: onSearchTag),
     );
   }
 }
@@ -170,7 +168,9 @@ class LoadingOverlay extends StatelessWidget {
                 opacity: isLoading ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 200),
                 child: Container(
-                  color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surface.withValues(alpha: 0.7),
                   child: Center(
                     child: Container(
                       padding: const EdgeInsets.all(24),
@@ -246,6 +246,7 @@ class HitomiImage extends StatefulWidget {
   final String? imageHash;
   final String url;
   final BoxFit fit;
+  final Alignment alignment;
   final double? width;
   final double? height;
   final bool showLoadingPlaceholder;
@@ -256,6 +257,7 @@ class HitomiImage extends StatefulWidget {
     this.imageHash,
     required this.url,
     this.fit = BoxFit.cover,
+    this.alignment = Alignment.center,
     this.width,
     this.height,
     this.showLoadingPlaceholder = true,
@@ -282,7 +284,8 @@ class _HitomiImageState extends State<HitomiImage> {
   @override
   void didUpdateWidget(covariant HitomiImage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.url != oldWidget.url || widget.imageHash != oldWidget.imageHash) {
+    if (widget.url != oldWidget.url ||
+        widget.imageHash != oldWidget.imageHash) {
       _currentUrl = widget.url;
       _retryCount = 0;
       _isRefreshingUrl = false;
@@ -351,6 +354,7 @@ class _HitomiImageState extends State<HitomiImage> {
       height: widget.height,
       httpHeaders: HttpClient.defaultHeaders,
       fit: widget.fit,
+      alignment: widget.alignment,
       placeholder: (context, url) => widget.showLoadingPlaceholder
           ? Shimmer.fromColors(
               baseColor: colorScheme.surfaceContainerHigh,
@@ -417,7 +421,11 @@ class GalleryCard extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.refresh_rounded, color: Theme.of(context).colorScheme.primary, size: 32),
+                Icon(
+                  Icons.refresh_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 32,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   'Tap to Retry',
@@ -815,14 +823,22 @@ class _DetailedCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: isDark ? colorScheme.surfaceContainerHighest : colorScheme.secondaryContainer,
+        color: isDark
+            ? colorScheme.surfaceContainerHighest
+            : colorScheme.secondaryContainer,
         borderRadius: BorderRadius.circular(6),
-        border: isDark ? Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.5)) : null,
+        border: isDark
+            ? Border.all(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+              )
+            : null,
       ),
       child: Text(
         label,
         style: theme.textTheme.labelSmall?.copyWith(
-          color: isDark ? colorScheme.onSurface : colorScheme.onSecondaryContainer,
+          color: isDark
+              ? colorScheme.onSurface
+              : colorScheme.onSecondaryContainer,
           fontSize: 10,
           fontWeight: FontWeight.bold,
         ),
@@ -852,7 +868,10 @@ class TagChip extends StatelessWidget {
     return ListenableBuilder(
       listenable: AppState.instance.favorites,
       builder: (context, _) {
-        final isFav = AppState.instance.favorites.value.isFavorite(tag.type, tag.value);
+        final isFav = AppState.instance.favorites.value.isFavorite(
+          tag.type,
+          tag.value,
+        );
 
         Color? bgColor = color;
         Color fgColor = colorScheme.onSurfaceVariant;
