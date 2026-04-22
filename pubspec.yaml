@@ -1,7 +1,7 @@
 name: donggong
 description: "A Modern Hitomi Reader"
 publish_to: 'none'
-version: 2.0.0
+version: 2.2.0
 
 environment:
   sdk: ^3.10.7
@@ -14,6 +14,7 @@ dependencies:
   http: ^1.6.0
   intl: ^0.20.2
   metadata_god: ^1.1.0
+  package_info_plus: ^8.3.0
   path: ^1.9.1
   path_provider: ^2.1.5
   sqflite: ^2.4.2

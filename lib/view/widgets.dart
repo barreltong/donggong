@@ -10,6 +10,73 @@ import '../network/http.dart';
 import 'app_notification.dart';
 import 'detail.dart';
 
+class PagedCollectionController<T> extends ChangeNotifier {
+  PagedCollectionController({required this.pageSize});
+
+  final int pageSize;
+  List<T> _sourceItems = [];
+  List<T> _visibleItems = [];
+  int _currentPage = 1;
+  int _totalCount = 0;
+
+  List<T> get sourceItems => _sourceItems;
+  List<T> get visibleItems => _visibleItems;
+  int get currentPage => _currentPage;
+  int get totalCount => _totalCount;
+  bool get hasVisibleItems => _visibleItems.isNotEmpty;
+  bool get canLoadMore => _visibleItems.length < _totalCount;
+
+  void replaceAll(
+    List<T> items, {
+    required int totalCount,
+    int currentPage = 1,
+    required String listingMode,
+  }) {
+    _sourceItems = List<T>.from(items);
+    _totalCount = totalCount;
+    _currentPage = currentPage;
+    _rebuildVisible(listingMode);
+  }
+
+  void appendPage(
+    List<T> items, {
+    required int totalCount,
+    required String listingMode,
+  }) {
+    _sourceItems.addAll(items);
+    _totalCount = totalCount;
+    _currentPage += 1;
+    _rebuildVisible(listingMode);
+  }
+
+  void applyListingMode(String listingMode, {int? targetPage}) {
+    if (targetPage != null) {
+      _currentPage = targetPage;
+    }
+    _rebuildVisible(listingMode);
+  }
+
+  void clear({bool notify = true}) {
+    _sourceItems = [];
+    _visibleItems = [];
+    _currentPage = 1;
+    _totalCount = 0;
+    if (notify) {
+      notifyListeners();
+    }
+  }
+
+  void _rebuildVisible(String listingMode) {
+    if (listingMode == 'pagination') {
+      _visibleItems = List<T>.from(_sourceItems);
+    } else {
+      final end = (_currentPage * pageSize).clamp(0, _sourceItems.length);
+      _visibleItems = _sourceItems.sublist(0, end);
+    }
+    notifyListeners();
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Gallery Grid (Common Grid)
 // ─────────────────────────────────────────────────────────────────────────────

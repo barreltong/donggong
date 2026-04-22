@@ -5,10 +5,18 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity: FlutterActivity() {
-    private val CHANNEL = "com.donggong/dpi"
+    private val dpiChannel = "com.donggong/dpi"
+    private val otaChannel = "com.donggong/ota"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler(DpiBypassModule())
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            dpiChannel,
+        ).setMethodCallHandler(DpiBypassModule())
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            otaChannel,
+        ).setMethodCallHandler(OtaUpdateModule(this))
     }
 }

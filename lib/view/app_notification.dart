@@ -7,12 +7,19 @@ class AppNotification {
     final colorScheme = theme.colorScheme;
 
     late OverlayEntry entry;
-    
+    var isRemoved = false;
+
+    void removeEntry() {
+      if (isRemoved) return;
+      isRemoved = true;
+      entry.remove();
+    }
+
     entry = OverlayEntry(
       builder: (context) => _NotificationWidget(
         message: message,
         colorScheme: colorScheme,
-        onDismiss: () => entry.remove(),
+        onDismiss: removeEntry,
       ),
     );
 
@@ -52,18 +59,12 @@ class _NotificationWidgetState extends State<_NotificationWidget>
     _offsetAnimation = Tween<Offset>(
       begin: const Offset(0, 1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutBack,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
     _opacityAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeIn,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
 
     _controller.forward();
 
@@ -108,8 +109,11 @@ class _NotificationWidgetState extends State<_NotificationWidget>
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline_rounded,
-                      color: widget.colorScheme.surface, size: 18),
+                  Icon(
+                    Icons.info_outline_rounded,
+                    color: widget.colorScheme.surface,
+                    size: 18,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(

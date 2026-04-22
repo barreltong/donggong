@@ -17,12 +17,13 @@ class FavoritesScreen extends StatefulWidget {
 
 class _FavoritesScreenState extends State<FavoritesScreen> {
   final _scrollController = ScrollController();
+  final _paging = PagedCollectionController<Gallery>(
+    pageSize: HitomiConstants.pageSize,
+  );
   List<Gallery> _allFavorites = [];
-  List<Gallery> _displayGalleries = [];
-  int _page = 1;
-  int _totalCount = 0;
   bool _isLoading = false;
-  final int _pageSize = HitomiConstants.pageSize;
+  int _loadToken = 0;
+  bool _hasQueuedReload = false;
 
   @override
   void initState() {
@@ -36,6 +37,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _paging.dispose();
     AppState.instance.listingMode.removeListener(_onListingModeChanged);
     AppState.instance.favorites.removeListener(_loadAll);
     super.dispose();
@@ -43,7 +45,10 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   void _onListingModeChanged() {
     if (mounted) {
-      _applyListingMode(targetPage: 1);
+      _paging.applyListingMode(
+        AppState.instance.listingMode.value,
+        targetPage: 1,
+      );
       if (_scrollController.hasClients) _scrollController.jumpTo(0);
     }
   }
@@ -58,60 +63,83 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   Future<void> _loadAll() async {
-    if (_isLoading) return; // Prevent duplicate loads
-    setState(() => _isLoading = true);
-
-    final favIds = AppState.instance.favorites.value.galleries.toList();
-    if (favIds.isEmpty) {
-      setState(() {
-        _allFavorites = [];
-        _displayGalleries = [];
-        _totalCount = 0;
-        _isLoading = false;
-      });
+    if (_isLoading) {
+      _hasQueuedReload = true;
       return;
     }
 
-    // Load cached galleries first, then render the screen.
-    // NO placeholders - only show items that are actually loaded
-    final reversedIds = favIds.reversed.toList();
+    final token = ++_loadToken;
+    setState(() => _isLoading = true);
 
-    // 1. Load ALL cached items at once (before showing anything)
-    final List<Gallery> allCachedGalleries = [];
-    final cachedMaps = await DbManager.getCachedGalleries(favIds);
-
-    // Decode in background
-    if (cachedMaps.isNotEmpty) {
-      final decoded = await compute(_parseGalleryChunk, cachedMaps);
-      allCachedGalleries.addAll(decoded);
-    }
-
-    // 2. Build ordered list from cached items only (no placeholders)
-    final galleryMap = {for (var g in allCachedGalleries) g.id: g};
-    final List<Gallery> builtList = [];
-    final List<int> missingIds = [];
-
-    for (final id in reversedIds) {
-      if (galleryMap.containsKey(id)) {
-        builtList.add(galleryMap[id]!);
-      } else {
-        missingIds.add(id);
+    try {
+      final favIds = AppState.instance.favorites.value.galleries.toList();
+      if (favIds.isEmpty) {
+        if (!mounted || token != _loadToken) return;
+        setState(() {
+          _allFavorites = [];
+          _isLoading = false;
+        });
+        _paging.clear();
+        return;
       }
-    }
 
-    // 3. Show UI with cached data only (single setState, no flicker)
-    if (mounted) {
+      // Load cached galleries first, then render the screen.
+      // NO placeholders - only show items that are actually loaded
+      final reversedIds = favIds.reversed.toList();
+
+      // 1. Load ALL cached items at once (before showing anything)
+      final List<Gallery> allCachedGalleries = [];
+      final cachedMaps = await DbManager.getCachedGalleries(favIds);
+      if (!mounted || token != _loadToken) return;
+
+      // Decode in background
+      if (cachedMaps.isNotEmpty) {
+        final decoded = await compute(_parseGalleryChunk, cachedMaps);
+        if (!mounted || token != _loadToken) return;
+        allCachedGalleries.addAll(decoded);
+      }
+
+      // 2. Build ordered list from cached items only (no placeholders)
+      final galleryMap = {for (var g in allCachedGalleries) g.id: g};
+      final List<Gallery> builtList = [];
+      final List<int> missingIds = [];
+
+      for (final id in reversedIds) {
+        if (galleryMap.containsKey(id)) {
+          builtList.add(galleryMap[id]!);
+        } else {
+          missingIds.add(id);
+        }
+      }
+
+      // 3. Show UI with cached data only (single setState, no flicker)
+      if (!mounted || token != _loadToken) return;
       setState(() {
         _allFavorites = builtList;
-        _totalCount = builtList.length;
         _isLoading = false;
       });
-      _applyListingMode(targetPage: _page);
-    }
+      _paging.replaceAll(
+        builtList,
+        totalCount: builtList.length,
+        currentPage: _paging.currentPage,
+        listingMode: AppState.instance.listingMode.value,
+      );
 
-    // 4. Fetch missing items in background (don't block UI)
-    if (missingIds.isNotEmpty) {
-      _processMissingIds(missingIds, reversedIds);
+      // 4. Fetch missing items in background (don't block UI)
+      if (missingIds.isNotEmpty) {
+        _processMissingIds(missingIds, reversedIds, token);
+      }
+    } finally {
+      if (mounted && token == _loadToken) {
+        if (_isLoading) {
+          setState(() => _isLoading = false);
+        }
+
+        if (_hasQueuedReload) {
+          _hasQueuedReload = false;
+          _loadAll();
+        }
+      }
     }
   }
 
@@ -130,12 +158,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   Future<void> _processMissingIds(
     List<int> missingIds,
     List<int> orderedIds,
+    int token,
   ) async {
     // Fetch in chunks of 10
     const int fetchChunkSize = 10;
 
     for (var i = 0; i < missingIds.length; i += fetchChunkSize) {
-      if (!mounted) return;
+      if (!mounted || token != _loadToken) return;
 
       final end = (i + fetchChunkSize < missingIds.length)
           ? i + fetchChunkSize
@@ -144,6 +173,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
       final fetchFutures = chunkIds.map((id) => _fetchSingleGallerySafe(id));
       final results = await Future.wait(fetchFutures);
+      if (!mounted || token != _loadToken) return;
 
       final fetchedGalleries = results
           .where((g) => g != null && !g.isError)
@@ -163,7 +193,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         await batch.commit(noResult: true);
 
         // Insert at correct positions
-        if (mounted) {
+        if (mounted && token == _loadToken) {
           setState(() {
             final galleryMap = {for (var g in fetchedGalleries) g.id: g};
             final existingMap = {for (var g in _allFavorites) g.id: g};
@@ -180,8 +210,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             }
 
             _allFavorites = newList;
-            _totalCount = newList.length;
-            _applyListingMode(targetPage: _page);
+            _paging.replaceAll(
+              newList,
+              totalCount: newList.length,
+              currentPage: _paging.currentPage,
+              listingMode: AppState.instance.listingMode.value,
+            );
           });
         }
       }
@@ -207,22 +241,36 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   Future<void> _retryLoading(Gallery gallery) async {
-    final index = _allFavorites.indexWhere((g) => g.id == gallery.id);
-    if (index != -1) {
+    final initialIndex = _allFavorites.indexWhere((g) => g.id == gallery.id);
+    if (initialIndex != -1) {
       setState(() {
-        _allFavorites[index] = Gallery.loading(gallery.id);
-        _applyListingMode(targetPage: _page);
+        _allFavorites[initialIndex] = Gallery.loading(gallery.id);
       });
+      _paging.replaceAll(
+        _allFavorites,
+        totalCount: _allFavorites.length,
+        currentPage: _paging.currentPage,
+        listingMode: AppState.instance.listingMode.value,
+      );
     }
 
     try {
       final fetched = await HitomiManager.instance.getDetail(gallery.id);
       if (fetched.id != 0) {
         if (mounted) {
+          final currentIndex = _allFavorites.indexWhere(
+            (g) => g.id == gallery.id,
+          );
+          if (currentIndex == -1) return;
           setState(() {
-            _allFavorites[index] = fetched;
-            _applyListingMode(targetPage: _page);
+            _allFavorites[currentIndex] = fetched;
           });
+          _paging.replaceAll(
+            _allFavorites,
+            totalCount: _allFavorites.length,
+            currentPage: _paging.currentPage,
+            listingMode: AppState.instance.listingMode.value,
+          );
           await DbManager.cacheGallery(
             fetched.id,
             jsonEncode(fetched.toJson()),
@@ -231,10 +279,19 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       }
     } catch (_) {
       if (mounted) {
+        final currentIndex = _allFavorites.indexWhere(
+          (g) => g.id == gallery.id,
+        );
+        if (currentIndex == -1) return;
         setState(() {
-          _allFavorites[index] = Gallery.error(gallery.id);
-          _applyListingMode(targetPage: _page);
+          _allFavorites[currentIndex] = Gallery.error(gallery.id);
         });
+        _paging.replaceAll(
+          _allFavorites,
+          totalCount: _allFavorites.length,
+          currentPage: _paging.currentPage,
+          listingMode: AppState.instance.listingMode.value,
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Retrying ${gallery.id} failed again.')),
         );
@@ -242,31 +299,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     }
   }
 
-  void _applyListingMode({int targetPage = 1, bool append = false}) {
-    final mode = AppState.instance.listingMode.value;
-    if (mode == 'pagination') {
-      final start = (targetPage - 1) * _pageSize;
-      final end = (start + _pageSize).clamp(0, _totalCount);
-      setState(() {
-        _displayGalleries = _allFavorites.sublist(start, end);
-        _page = targetPage;
-      });
-    } else {
-      final end = (targetPage * _pageSize).clamp(0, _totalCount);
-      setState(() {
-        if (append) {
-          _displayGalleries = _allFavorites.sublist(0, end);
-        } else {
-          _displayGalleries = _allFavorites.sublist(0, end);
-        }
-        _page = targetPage;
-      });
-    }
-  }
-
   void _loadMore() {
-    if (_isLoading || _displayGalleries.length >= _totalCount) return;
-    _applyListingMode(targetPage: _page + 1, append: true);
+    if (_isLoading || !_paging.canLoadMore) return;
+    _paging.applyListingMode(
+      AppState.instance.listingMode.value,
+      targetPage: _paging.currentPage + 1,
+    );
   }
 
   void _searchTag(String query) {
@@ -276,7 +314,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   Future<void> _showPageJumpDialog() async {
     final l = L.of(context);
-    final totalPages = (_totalCount / _pageSize).ceil();
+    final totalPages = (_paging.totalCount / HitomiConstants.pageSize).ceil();
     if (totalPages <= 1) return;
 
     final controller = TextEditingController();
@@ -319,7 +357,10 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
 
     if (jumpPage != null) {
-      _applyListingMode(targetPage: jumpPage);
+      _paging.applyListingMode(
+        AppState.instance.listingMode.value,
+        targetPage: jumpPage,
+      );
       if (_scrollController.hasClients) _scrollController.jumpTo(0);
     }
   }
@@ -367,9 +408,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             children: [
               Expanded(
                 child: GalleryGrid(
-                  galleries: _displayGalleries,
-                  isLoading:
-                      !isPagination && _displayGalleries.length < _totalCount,
+                  galleries: _paging.visibleItems,
+                  isLoading: !isPagination && _paging.canLoadMore,
                   scrollController: _scrollController,
                   onRetry: _retryLoading,
                   onSearchTag: _searchTag,
@@ -385,7 +425,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   Widget _buildPaginationBar() {
     final theme = Theme.of(context);
-    final totalPages = (_totalCount / _pageSize).ceil();
+    final totalPages = (_paging.totalCount / HitomiConstants.pageSize).ceil();
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -411,9 +451,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           children: [
             IconButton.filledTonal(
               icon: const Icon(Icons.first_page_rounded),
-              onPressed: _page > 1
+              onPressed: _paging.currentPage > 1
                   ? () {
-                      _applyListingMode(targetPage: 1);
+                      _paging.applyListingMode(
+                        AppState.instance.listingMode.value,
+                        targetPage: 1,
+                      );
                       if (_scrollController.hasClients) {
                         _scrollController.jumpTo(0);
                       }
@@ -422,9 +465,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             ),
             IconButton.filledTonal(
               icon: const Icon(Icons.chevron_left_rounded),
-              onPressed: _page > 1
+              onPressed: _paging.currentPage > 1
                   ? () {
-                      _applyListingMode(targetPage: _page - 1);
+                      _paging.applyListingMode(
+                        AppState.instance.listingMode.value,
+                        targetPage: _paging.currentPage - 1,
+                      );
                       if (_scrollController.hasClients) {
                         _scrollController.jumpTo(0);
                       }
@@ -446,7 +492,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '$_page / $totalPages',
+                  '${_paging.currentPage} / $totalPages',
                   style: theme.textTheme.labelLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: theme.colorScheme.onSecondaryContainer,
@@ -456,9 +502,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             ),
             IconButton.filledTonal(
               icon: const Icon(Icons.chevron_right_rounded),
-              onPressed: _page < totalPages
+              onPressed: _paging.currentPage < totalPages
                   ? () {
-                      _applyListingMode(targetPage: _page + 1);
+                      _paging.applyListingMode(
+                        AppState.instance.listingMode.value,
+                        targetPage: _paging.currentPage + 1,
+                      );
                       if (_scrollController.hasClients) {
                         _scrollController.jumpTo(0);
                       }
@@ -467,9 +516,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             ),
             IconButton.filledTonal(
               icon: const Icon(Icons.last_page_rounded),
-              onPressed: _page < totalPages
+              onPressed: _paging.currentPage < totalPages
                   ? () {
-                      _applyListingMode(targetPage: totalPages);
+                      _paging.applyListingMode(
+                        AppState.instance.listingMode.value,
+                        targetPage: totalPages,
+                      );
                       if (_scrollController.hasClients) {
                         _scrollController.jumpTo(0);
                       }

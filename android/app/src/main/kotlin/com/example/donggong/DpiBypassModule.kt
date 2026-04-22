@@ -97,12 +97,17 @@ class DpiBypassModule : MethodChannel.MethodCallHandler {
                         try {
                             val callObj = client.newCall(requestBuilder.build())
                             callObj.execute().use { response ->
+                                val responseBytes = response.body?.bytes() ?: ByteArray(0)
+                                val responseHeaders = response.headers.toMultimap().mapValues { entry ->
+                                    entry.value.joinToString(",")
+                                }
                                 if (response.isSuccessful) {
-                                    val body = response.body?.string() ?: ""
                                     android.os.Handler(android.os.Looper.getMainLooper()).post {
                                         result.success(mapOf(
-                                            "body" to body,
-                                            "statusCode" to response.code
+                                            "bodyBytes" to responseBytes,
+                                            "body" to String(responseBytes, Charsets.UTF_8),
+                                            "statusCode" to response.code,
+                                            "headers" to responseHeaders
                                         ))
                                     }
                                     return@Thread
@@ -112,11 +117,12 @@ class DpiBypassModule : MethodChannel.MethodCallHandler {
                                     // Actually, Hitomi sometimes blocks temporarily, so retry is good.
                                     // But if it's 404, we should probably stop.
                                     if (response.code == 404 || attempt == 3) {
-                                        val body = response.body?.string() ?: ""
                                         android.os.Handler(android.os.Looper.getMainLooper()).post {
                                             result.success(mapOf(
-                                                "body" to body,
-                                                "statusCode" to response.code
+                                                "bodyBytes" to responseBytes,
+                                                "body" to String(responseBytes, Charsets.UTF_8),
+                                                "statusCode" to response.code,
+                                                "headers" to responseHeaders
                                             ))
                                         }
                                         return@Thread

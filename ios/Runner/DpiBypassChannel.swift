@@ -84,18 +84,28 @@ class DpiBypassChannel: NSObject {
                 return
             }
             
+            let headerMap = httpResponse.allHeaderFields.reduce(into: [String: String]()) { result, entry in
+                result[String(describing: entry.key).lowercased()] = String(describing: entry.value)
+            }
+
             if (200...299).contains(httpResponse.statusCode) {
-                let body = data != nil ? String(data: data!, encoding: .utf8) ?? "" : ""
+                let bodyData = data ?? Data()
+                let body = String(data: bodyData, encoding: .utf8) ?? ""
                 result([
+                    "bodyBytes": FlutterStandardTypedData(bytes: bodyData),
                     "body": body,
-                    "statusCode": httpResponse.statusCode
+                    "statusCode": httpResponse.statusCode,
+                    "headers": headerMap
                 ])
             } else {
                 if httpResponse.statusCode == 404 || attempt >= 3 {
-                    let body = data != nil ? String(data: data!, encoding: .utf8) ?? "" : ""
+                    let bodyData = data ?? Data()
+                    let body = String(data: bodyData, encoding: .utf8) ?? ""
                     result([
+                        "bodyBytes": FlutterStandardTypedData(bytes: bodyData),
                         "body": body,
-                        "statusCode": httpResponse.statusCode
+                        "statusCode": httpResponse.statusCode,
+                        "headers": headerMap
                     ])
                 } else {
                     // Retry

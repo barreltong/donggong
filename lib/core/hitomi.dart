@@ -73,33 +73,33 @@ class Gallery {
   });
 
   factory Gallery.empty() => const Gallery(
-        id: 0,
-        title: '',
-        thumbnail: '',
-        artists: [],
-        type: '',
-        tags: [],
-      );
+    id: 0,
+    title: '',
+    thumbnail: '',
+    artists: [],
+    type: '',
+    tags: [],
+  );
 
   factory Gallery.loading(int id) => Gallery(
-        id: id,
-        title: '',
-        thumbnail: '',
-        artists: [],
-        type: '',
-        tags: [],
-        isLoading: true,
-      );
+    id: id,
+    title: '',
+    thumbnail: '',
+    artists: [],
+    type: '',
+    tags: [],
+    isLoading: true,
+  );
 
   factory Gallery.error(int id) => Gallery(
-        id: id,
-        title: 'Error loading gallery',
-        thumbnail: '',
-        artists: [],
-        type: 'error',
-        tags: [],
-        isError: true,
-      );
+    id: id,
+    title: 'Error loading gallery',
+    thumbnail: '',
+    artists: [],
+    type: 'error',
+    tags: [],
+    isError: true,
+  );
 
   @override
   bool operator ==(Object other) {
@@ -121,42 +121,51 @@ class Gallery {
     // Helper for parsing Hitomi tag format
     List<String> parseTags(dynamic input, {bool isTag = false}) {
       if (input is! List) return [];
-      return input.map((e) {
-        if (e is String) return e;
-        if (e is Map) {
-          if (e.containsKey('artist')) return e['artist'] as String;
-          if (e.containsKey('group')) return e['group'] as String;
-          if (e.containsKey('character')) return e['character'] as String;
-          if (e.containsKey('parody')) return e['parody'] as String;
-          if (e.containsKey('tag')) {
-            final tag = e['tag'] as String;
-            if (!isTag) return tag;
-            final female = e['female'] == '1' || e['female'] == 1;
-            final male = e['male'] == '1' || e['male'] == 1;
-            if (female) return 'female:$tag';
-            if (male) return 'male:$tag';
-            return 'tag:$tag';
-          }
-        }
-        return '';
-      }).where((e) => e.isNotEmpty).cast<String>().toList();
+      return input
+          .map((e) {
+            if (e is String) return e;
+            if (e is Map) {
+              if (e.containsKey('artist')) return e['artist'] as String;
+              if (e.containsKey('group')) return e['group'] as String;
+              if (e.containsKey('character')) return e['character'] as String;
+              if (e.containsKey('parody')) return e['parody'] as String;
+              if (e.containsKey('tag')) {
+                final tag = e['tag'] as String;
+                if (!isTag) return tag;
+                final female = e['female'] == '1' || e['female'] == 1;
+                final male = e['male'] == '1' || e['male'] == 1;
+                if (female) return 'female:$tag';
+                if (male) return 'male:$tag';
+                return 'tag:$tag';
+              }
+            }
+            return '';
+          })
+          .where((e) => e.isNotEmpty)
+          .cast<String>()
+          .toList();
     }
 
-    final id = json['id'] is int ? json['id'] : int.parse(json['id'].toString());
+    final id = json['id'] is int
+        ? json['id']
+        : int.parse(json['id'].toString());
     final files = (json['files'] as List?) ?? [];
-    
+
     int pCount = files.length;
     if (pCount == 0 && json.containsKey('pageCount')) {
-      pCount = json['pageCount'] is int ? json['pageCount'] : int.tryParse(json['pageCount'].toString()) ?? 0;
+      pCount = json['pageCount'] is int
+          ? json['pageCount']
+          : int.tryParse(json['pageCount'].toString()) ?? 0;
     }
-    
+
     // Thumbnail generation
     String thumb = '';
     if (files.isNotEmpty) {
       final hash = files[0]['hash'] as String;
       final suffix = hash.substring(hash.length - 1);
       final mid = hash.substring(hash.length - 3, hash.length - 1);
-      thumb = 'https://tn.gold-usergeneratedcontent.net/webpbigtn/$suffix/$mid/$hash.webp';
+      thumb =
+          'https://tn.gold-usergeneratedcontent.net/webpbigtn/$suffix/$mid/$hash.webp';
     }
 
     return Gallery(
@@ -175,18 +184,18 @@ class Gallery {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'thumbnail': thumbnail,
-        'artists': artists,
-        'groups': groups,
-        'characters': characters,
-        'parodys': parodys,
-        'type': type,
-        'language': language,
-        'tags': tags,
-        'pageCount': pageCount, // Persist page count
-      };
+    'id': id,
+    'title': title,
+    'thumbnail': thumbnail,
+    'artists': artists,
+    'groups': groups,
+    'characters': characters,
+    'parodys': parodys,
+    'type': type,
+    'language': language,
+    'tags': tags,
+    'pageCount': pageCount, // Persist page count
+  };
 }
 
 class TagSuggestion {
@@ -201,10 +210,10 @@ class TagSuggestion {
   });
 
   factory TagSuggestion.fromJson(List<dynamic> json) => TagSuggestion(
-        tag: json[0] as String,
-        count: json[1] is int ? json[1] : int.tryParse(json[1].toString()) ?? 0,
-        type: json[2] as String,
-      );
+    tag: json[0] as String,
+    count: json[1] is int ? json[1] : int.tryParse(json[1].toString()) ?? 0,
+    type: json[2] as String,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -249,20 +258,22 @@ class HitomiManager {
     try {
       final start = (page - 1) * HitomiConstants.nozomiRangeBytes;
       final end = page * HitomiConstants.nozomiRangeBytes - 1;
-      
+
       final language = lang ?? 'korean';
       final url = '${HitomiConstants.cdnBase}/index-$language.nozomi';
-      
+
       // Parallel requests: IDs and Total Count
-      final responses = await Future.wait([
+      final responses = await Future.wait<dynamic>([
         HttpClient.fetch(url, headers: {'Range': 'bytes=$start-$end'}),
         HttpClient.getContentLength(url),
       ]);
 
-      final res = responses[0] as dynamic; // HttpClient.fetch returns Response
+      final res = responses[0] as HttpPayload;
       final totalBytes = responses[1] as int?;
-      
-      if (res.statusCode != 200 && res.statusCode != 206) return (<Gallery>[], 0);
+
+      if (res.statusCode != 200 && res.statusCode != 206) {
+        return (<Gallery>[], 0);
+      }
 
       final totalCount = totalBytes != null ? totalBytes ~/ 4 : 0;
       final ids = _parseNozomi(res.bodyBytes);
@@ -275,9 +286,16 @@ class HitomiManager {
   }
 
   /// Search Galleries
-  Future<(List<Gallery>, int)> search(String query, {int page = 1, String defaultLang = 'all'}) async {
+  Future<(List<Gallery>, int)> search(
+    String query, {
+    int page = 1,
+    String defaultLang = 'all',
+  }) async {
     final normalizedQuery = TagUtils.normalizeQuery(query);
-    final terms = normalizedQuery.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+    final terms = normalizedQuery
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
     if (terms.isEmpty) return (<Gallery>[], 0);
 
     final hasLang = terms.any((t) => t.startsWith('language:'));
@@ -290,24 +308,29 @@ class HitomiManager {
       final tag = info.displayLabel;
 
       if (area == 'language') {
-        final res = await HttpClient.get('${HitomiConstants.cdnBase}/index-$tag.nozomi');
+        final res = await HttpClient.get(
+          '${HitomiConstants.cdnBase}/index-$tag.nozomi',
+        );
         return res.statusCode == 200 ? _parseNozomi(res.bodyBytes) : {};
       }
 
       String url;
       if (area == 'female' || area == 'male') {
-        url = '${HitomiConstants.cdnBase}/tag/$area:${Uri.encodeComponent(tag)}-$lang.nozomi';
+        url =
+            '${HitomiConstants.cdnBase}/tag/$area:${Uri.encodeComponent(tag)}-$lang.nozomi';
       } else {
-        url = '${HitomiConstants.cdnBase}/$area/${Uri.encodeComponent(tag)}-$lang.nozomi';
+        url =
+            '${HitomiConstants.cdnBase}/$area/${Uri.encodeComponent(tag)}-$lang.nozomi';
       }
 
       try {
         var res = await HttpClient.get(url);
         if (res.statusCode == 200) return _parseNozomi(res.bodyBytes);
-        
+
         // Fallback to 'all' if not found in specific language
         if (res.statusCode == 404 && lang != 'all') {
-          final fallbackUrl = '${HitomiConstants.cdnBase}/$area/${Uri.encodeComponent(tag)}-all.nozomi';
+          final fallbackUrl =
+              '${HitomiConstants.cdnBase}/$area/${Uri.encodeComponent(tag)}-all.nozomi';
           res = await HttpClient.get(fallbackUrl);
           return res.statusCode == 200 ? _parseNozomi(res.bodyBytes) : {};
         }
@@ -332,7 +355,7 @@ class HitomiManager {
 
     final start = (page - 1) * HitomiConstants.pageSize;
     if (start >= totalCount) return (<Gallery>[], totalCount);
-    
+
     final end = (start + HitomiConstants.pageSize).clamp(0, totalCount);
     final pagedIds = sortedIds.sublist(start, end);
 
@@ -350,15 +373,17 @@ class HitomiManager {
 
     while (retryCount < maxRetries) {
       try {
-        final res = await HttpClient.fetch('${HitomiConstants.cdnBase}/galleries/$id.js');
-        
+        final res = await HttpClient.fetch(
+          '${HitomiConstants.cdnBase}/galleries/$id.js',
+        );
+
         if (res.statusCode == 404) {
           throw GalleryNotFoundException(id);
         }
-        
+
         final text = res.body.replaceFirst('var galleryinfo = ', '');
         final json = jsonDecode(text);
-        
+
         final gallery = Gallery.fromJson(json);
         _addToCache(gallery);
         return gallery;
@@ -367,10 +392,12 @@ class HitomiManager {
       } catch (e) {
         retryCount++;
         if (retryCount >= maxRetries) break;
-        await Future.delayed(Duration(seconds: 1 * retryCount)); // Exponential backoff
+        await Future.delayed(
+          Duration(seconds: 1 * retryCount),
+        ); // Exponential backoff
       }
     }
-    
+
     // Return error gallery after retries fail
     return Gallery.error(id);
   }
@@ -387,17 +414,26 @@ class HitomiManager {
       ]);
 
       final galleryResponse = responses[0] as dynamic;
-      final galleryText = galleryResponse.body.replaceFirst('var galleryinfo = ', '');
+      final galleryText = galleryResponse.body.replaceFirst(
+        'var galleryinfo = ',
+        '',
+      );
       final galleryJson = jsonDecode(galleryText);
       final ggScript = responses[1] as String;
 
       final files = (galleryJson['files'] as List?);
-      final images = files?.map((f) => GalleryImage(
-        hash: f['hash'],
-        width: f['width'],
-        height: f['height'],
-        url: _buildImageUrl(f['hash'], ggScript),
-      )).toList() ?? [];
+      final images =
+          files
+              ?.map(
+                (f) => GalleryImage(
+                  hash: f['hash'],
+                  width: f['width'],
+                  height: f['height'],
+                  url: _buildImageUrl(f['hash'], ggScript),
+                ),
+              )
+              .toList() ??
+          [];
 
       final baseGallery = Gallery.fromJson(galleryJson);
       final fullGallery = Gallery(
@@ -422,7 +458,10 @@ class HitomiManager {
     }
   }
 
-  Future<String> resolveImageUrl(String hash, {bool forceRefresh = false}) async {
+  Future<String> resolveImageUrl(
+    String hash, {
+    bool forceRefresh = false,
+  }) async {
     final ggScript = await _getGgScript(forceRefresh: forceRefresh);
     return _buildImageUrl(hash, ggScript);
   }
@@ -434,7 +473,9 @@ class HitomiManager {
 
     try {
       final path = clean.split('').join('/');
-      final res = await HttpClient.fetch('${HitomiConstants.tagIndexBase}/global/$path.json');
+      final res = await HttpClient.fetch(
+        '${HitomiConstants.tagIndexBase}/global/$path.json',
+      );
       if (res.statusCode != 200) return [];
 
       final json = jsonDecode(res.body) as List;
@@ -459,7 +500,8 @@ class HitomiManager {
 
   Future<String> _getGgScript({bool forceRefresh = false}) async {
     final now = DateTime.now();
-    final isFresh = !forceRefresh &&
+    final isFresh =
+        !forceRefresh &&
         _ggScriptCache != null &&
         _ggScriptFetchedAt != null &&
         now.difference(_ggScriptFetchedAt!) < _ggCacheTtl;
@@ -487,14 +529,18 @@ class HitomiManager {
   }
 
   String _buildImageUrl(String hash, String gg) {
-    final s = hash.substring(hash.length - 1) + hash.substring(hash.length - 3, hash.length - 1);
+    final s =
+        hash.substring(hash.length - 1) +
+        hash.substring(hash.length - 3, hash.length - 1);
     final imageId = int.parse(s, radix: 16);
 
     final defaultDomainMatch = RegExp(r'var o = (\d)').firstMatch(gg);
-    final defaultDomain = (int.tryParse(defaultDomainMatch?.group(1) ?? '0') ?? 0) + 1;
+    final defaultDomain =
+        (int.tryParse(defaultDomainMatch?.group(1) ?? '0') ?? 0) + 1;
 
     final offsetDomainMatch = RegExp(r'o = (\d); break;').firstMatch(gg);
-    final offsetDomain = (int.tryParse(offsetDomainMatch?.group(1) ?? '0') ?? 0) + 1;
+    final offsetDomain =
+        (int.tryParse(offsetDomainMatch?.group(1) ?? '0') ?? 0) + 1;
 
     final commonKeyMatch = RegExp(r"b: '(\d+)/").firstMatch(gg);
     final commonKey = commonKeyMatch?.group(1) ?? '';

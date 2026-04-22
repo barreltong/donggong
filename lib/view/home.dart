@@ -16,10 +16,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _scrollController = ScrollController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _paging = PagedCollectionController<Gallery>(
+    pageSize: HitomiConstants.pageSize,
+  );
 
-  List<Gallery> _galleries = [];
-  int _page = 1;
-  int _totalCount = 0;
   bool _isLoading = false;
   String _query = '';
   bool _showFab = false;
@@ -42,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _paging.dispose();
     AppState.instance.defaultLanguage.removeListener(_onLanguageChanged);
     AppState.instance.listingMode.removeListener(_onListingModeChanged);
     AppState.instance.pendingSearch.removeListener(_onPendingSearch);
@@ -55,8 +56,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onListingModeChanged() {
-    if (mounted) {
-      _loadData(refresh: true, targetPage: 1);
+    if (!mounted) return;
+    final mode = AppState.instance.listingMode.value;
+    if (mode == 'pagination') {
+      _loadData(
+        refresh: true,
+        targetPage: _paging.currentPage.clamp(1, 999999),
+      );
+    } else {
+      _paging.applyListingMode(mode, targetPage: _paging.currentPage);
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
     }
   }
 
@@ -68,7 +79,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onScroll() {
-    // Show/Hide FAB
     if (_scrollController.hasClients) {
       if (_scrollController.offset > 300 && !_showFab) {
         setState(() => _showFab = true);
@@ -78,7 +88,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (AppState.instance.listingMode.value == 'pagination') return;
-
     if (_scrollController.hasClients &&
         _scrollController.position.pixels >=
             _scrollController.position.maxScrollExtent - 400) {
@@ -96,10 +105,14 @@ class _HomeScreenState extends State<HomeScreen> {
     required bool refresh,
     int? targetPage,
   }) async {
-    final pageToLoad = targetPage ?? _page;
+    final listingModeAtRequest = AppState.instance.listingMode.value;
+    final pageToLoad =
+        targetPage ??
+        (listingModeAtRequest == 'pagination'
+            ? _paging.currentPage
+            : _paging.currentPage + (_paging.sourceItems.isEmpty ? 0 : 1));
     final queryAtRequest = _query;
     final defaultLang = AppState.instance.defaultLanguage.value;
-    final listingModeAtRequest = AppState.instance.listingMode.value;
 
     if (_isLoading) {
       _hasQueuedLoad = true;
@@ -123,17 +136,22 @@ class _HomeScreenState extends State<HomeScreen> {
             );
 
       if (mounted && token == _loadToken) {
-        setState(() {
-          if (refresh || listingModeAtRequest == 'pagination') {
-            _galleries = result.$1;
-          } else {
-            _galleries.addAll(result.$1);
-          }
+        setState(() => _isLoading = false);
 
-          _totalCount = result.$2;
-          _isLoading = false;
-          _page = pageToLoad + 1;
-        });
+        if (refresh || listingModeAtRequest == 'pagination') {
+          _paging.replaceAll(
+            result.$1,
+            totalCount: result.$2,
+            currentPage: pageToLoad,
+            listingMode: listingModeAtRequest,
+          );
+        } else {
+          _paging.appendPage(
+            result.$1,
+            totalCount: result.$2,
+            listingMode: listingModeAtRequest,
+          );
+        }
 
         if (targetPage != null && _scrollController.hasClients) {
           _scrollController.jumpTo(0);
@@ -169,12 +187,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onSearchSubmitted(String query) {
     final normalizedQuery = TagUtils.normalizeQuery(query);
-    setState(() {
-      _query = normalizedQuery;
-      _page = 1;
-      _galleries = [];
-      _totalCount = 0;
-    });
+    setState(() => _query = normalizedQuery);
+    _paging.clear();
     if (normalizedQuery.isNotEmpty) {
       AppState.instance.addRecentSearch(normalizedQuery);
     }
@@ -183,7 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _showPageJumpDialog() async {
     final l = L.of(context);
-    final totalPages = (_totalCount / HitomiConstants.pageSize).ceil();
+    final totalPages = (_paging.totalCount / HitomiConstants.pageSize).ceil();
     if (totalPages <= 1) return;
 
     final controller = TextEditingController();
@@ -222,7 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
             },
-            child: Text('OK'),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -248,42 +262,40 @@ class _HomeScreenState extends State<HomeScreen> {
       child: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: Scaffold(
-        key: _scaffoldKey,
-        appBar: AppBar(
-          toolbarHeight: 80, // Increased for search bar breathing room
-          titleSpacing: 0,
-          title: HomeSearchBar(
-            query: _query,
-            onSubmitted: _onSearchSubmitted,
-            onMenuPressed: () {
-              FocusScope.of(context).unfocus();
-              _scaffoldKey.currentState?.openDrawer();
-            },
-            onFocusChanged: (hasFocus) {
-              if (_isSearchFocused != hasFocus && mounted) {
-                setState(() => _isSearchFocused = hasFocus);
-              }
+          key: _scaffoldKey,
+          appBar: AppBar(
+            toolbarHeight: 80,
+            titleSpacing: 0,
+            title: HomeSearchBar(
+              query: _query,
+              onSubmitted: _onSearchSubmitted,
+              onMenuPressed: () {
+                FocusScope.of(context).unfocus();
+                _scaffoldKey.currentState?.openDrawer();
+              },
+              onFocusChanged: (hasFocus) {
+                if (_isSearchFocused != hasFocus && mounted) {
+                  setState(() => _isSearchFocused = hasFocus);
+                }
+              },
+            ),
+            automaticallyImplyLeading: false,
+          ),
+          drawer: const HomeDrawer(),
+          body: ListenableBuilder(
+            listenable: Listenable.merge([
+              AppState.instance.listingMode,
+              AppState.instance.cardViewMode,
+            ]),
+            builder: (context, _) {
+              final isPagination =
+                  AppState.instance.listingMode.value == 'pagination';
+              return LoadingOverlay(
+                isLoading: isPagination && _isLoading,
+                child: _buildBody(l, isPagination),
+              );
             },
           ),
-          automaticallyImplyLeading: false,
-        ),
-        drawer: const HomeDrawer(),
-        body: ListenableBuilder(
-          listenable: Listenable.merge([
-            AppState.instance.listingMode,
-            AppState.instance.cardViewMode,
-          ]),
-          builder: (context, _) {
-            final isPagination =
-                AppState.instance.listingMode.value == 'pagination';
-
-            // 페이지네이션 모드에서만 블로킹 오버레이 적용
-            return LoadingOverlay(
-              isLoading: isPagination && _isLoading,
-              child: _buildBody(l, isPagination),
-            );
-          },
-        ),
         ),
       ),
     );
@@ -296,7 +308,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Column(
           children: [
-            if (_totalCount > 0)
+            if (_paging.totalCount > 0)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -307,7 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Row(
                   children: [
                     Text(
-                      l.foundResults(_totalCount),
+                      l.foundResults(_paging.totalCount),
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: Theme.of(context).colorScheme.secondary,
                       ),
@@ -325,27 +337,23 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () async {
-                  setState(() {
-                    _galleries.clear();
-                    _totalCount = 0;
-                  });
+                  _paging.clear(notify: false);
                   await _loadData(refresh: true, targetPage: 1);
                 },
-                child: _galleries.isEmpty && !_isLoading
+                child: !_paging.hasVisibleItems && !_isLoading
                     ? _buildEmptyState(l)
                     : GalleryGrid(
-                        galleries: _galleries,
+                        galleries: _paging.visibleItems,
                         isLoading: _isLoading && !isPagination,
                         scrollController: _scrollController,
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                        onSearchTag: (query) => _onSearchSubmitted(query),
+                        onSearchTag: _onSearchSubmitted,
                       ),
               ),
             ),
             if (isPagination) _buildPaginationBar(),
           ],
         ),
-
         Positioned(
           right: 16,
           bottom: isPagination ? 120 : 20,
@@ -392,8 +400,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildPaginationBar() {
     final theme = Theme.of(context);
-    final currentPage = _page - 1;
-    final totalPages = (_totalCount / HitomiConstants.pageSize).ceil();
+    final currentPage = _paging.currentPage;
+    final totalPages = (_paging.totalCount / HitomiConstants.pageSize).ceil();
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -499,7 +507,7 @@ class HomeDrawer extends StatelessWidget {
 
     return Drawer(
       backgroundColor: colorScheme.surface,
-      elevation: 0, // Flat design for modern look
+      elevation: 0,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.horizontal(right: Radius.circular(24)),
       ),

@@ -9,6 +9,58 @@ import 'app_notification.dart';
 import 'widgets.dart';
 import 'detail.dart'; // For bottom sheet info
 
+class _ReaderSpread {
+  final int? leftIndex;
+  final int? rightIndex;
+
+  const _ReaderSpread({this.leftIndex, this.rightIndex});
+}
+
+class _ReaderViewportPlan {
+  final String mode;
+  final int totalPages;
+  final String doublePageOrder;
+
+  const _ReaderViewportPlan({
+    required this.mode,
+    required this.totalPages,
+    required this.doublePageOrder,
+  });
+
+  int get viewportCount {
+    return mode == 'doublePage' ? ((totalPages + 1) ~/ 2) : totalPages;
+  }
+
+  int pageToViewportIndex(int page) {
+    return mode == 'doublePage' ? page ~/ 2 : page;
+  }
+
+  int viewportIndexToPage(int viewportIndex) {
+    return mode == 'doublePage' ? viewportIndex * 2 : viewportIndex;
+  }
+
+  _ReaderSpread spreadAt(int spreadIndex) {
+    final baseIndex = spreadIndex * 2;
+    final isJapanese = doublePageOrder == 'japanese';
+    final leftIndex = isJapanese ? baseIndex + 1 : baseIndex;
+    final rightIndex = isJapanese ? baseIndex : baseIndex + 1;
+    return _ReaderSpread(
+      leftIndex: leftIndex < totalPages ? leftIndex : null,
+      rightIndex: rightIndex < totalPages ? rightIndex : null,
+    );
+  }
+
+  String currentPageLabel(int currentPage) {
+    if (mode != 'doublePage') return '${currentPage + 1}';
+    final spread = spreadAt(currentPage ~/ 2);
+    final labels = <String>[
+      if (spread.leftIndex != null) '${spread.leftIndex! + 1}',
+      if (spread.rightIndex != null) '${spread.rightIndex! + 1}',
+    ];
+    return labels.join('-');
+  }
+}
+
 class ReaderScreen extends StatefulWidget {
   final int galleryId;
   const ReaderScreen({super.key, required this.galleryId});
@@ -28,6 +80,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
   // Controllers
   final PageController _pageController = PageController();
   final ScrollController _scrollController = ScrollController();
+
+  _ReaderViewportPlan get _viewportPlan => _ReaderViewportPlan(
+    mode: AppState.instance.readerMode.value,
+    totalPages: _totalPages,
+    doublePageOrder: AppState.instance.doublePageOrder.value,
+  );
 
   @override
   void initState() {
@@ -68,10 +126,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   void _onPageChanged(Gallery gallery, int index) {
-    final page = _viewportIndexToPage(
-      AppState.instance.readerMode.value,
-      index,
-    );
+    final page = _viewportPlan.viewportIndexToPage(index);
     _updateCurrentPage(page);
     _preloadUpcomingImages(gallery, page);
   }
@@ -114,8 +169,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   void _jumpToPage(Gallery gallery, int page) {
-    final mode = AppState.instance.readerMode.value;
-    if (mode == 'webtoon') {
+    final plan = _viewportPlan;
+    if (plan.mode == 'webtoon') {
       if (_scrollController.hasClients) {
         if (_totalPages <= 1) {
           _scrollController.jumpTo(0);
@@ -128,55 +183,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
       }
     } else {
       if (_pageController.hasClients) {
-        _pageController.jumpToPage(_pageToViewportIndex(mode, page));
+        _pageController.jumpToPage(plan.pageToViewportIndex(page));
       }
     }
     _updateCurrentPage(page);
     _preloadUpcomingImages(gallery, page);
   }
 
-  int _pageToViewportIndex(String mode, int page) {
-    return mode == 'doublePage' ? page ~/ 2 : page;
+  double _sliderValue(int currentPage) {
+    return _viewportPlan.pageToViewportIndex(currentPage).toDouble();
   }
 
-  int _viewportIndexToPage(String mode, int viewportIndex) {
-    return mode == 'doublePage' ? viewportIndex * 2 : viewportIndex;
-  }
-
-  int _viewportCount(String mode) {
-    return mode == 'doublePage' ? ((_totalPages + 1) ~/ 2) : _totalPages;
-  }
-
-  double _sliderValue(String mode, int currentPage) {
-    return _pageToViewportIndex(mode, currentPage).toDouble();
-  }
-
-  double _sliderMax(String mode) {
-    final max = _viewportCount(mode) - 1;
+  double _sliderMax() {
+    final max = _viewportPlan.viewportCount - 1;
     return max > 0 ? max.toDouble() : 1;
-  }
-
-  ({int? leftIndex, int? rightIndex}) _spreadPageIndices(int spreadIndex) {
-    final baseIndex = spreadIndex * 2;
-    final isJapanese = AppState.instance.doublePageOrder.value == 'japanese';
-    final leftIndex = isJapanese ? baseIndex + 1 : baseIndex;
-    final rightIndex = isJapanese ? baseIndex : baseIndex + 1;
-
-    return (
-      leftIndex: leftIndex < _totalPages ? leftIndex : null,
-      rightIndex: rightIndex < _totalPages ? rightIndex : null,
-    );
-  }
-
-  String _currentPageLabel(String mode, int currentPage) {
-    if (mode != 'doublePage') return '${currentPage + 1}';
-
-    final spread = _spreadPageIndices(currentPage ~/ 2);
-    final labels = <String>[
-      if (spread.leftIndex != null) '${spread.leftIndex! + 1}',
-      if (spread.rightIndex != null) '${spread.rightIndex! + 1}',
-    ];
-    return labels.join('-');
   }
 
   void _syncViewportForMode(String mode) {
@@ -188,7 +208,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
       final currentPage = _currentPageNotifier.value;
       if (mode == 'webtoon') return;
       if (_pageController.hasClients) {
-        _pageController.jumpToPage(_pageToViewportIndex(mode, currentPage));
+        _pageController.jumpToPage(
+          _viewportPlan.pageToViewportIndex(currentPage),
+        );
       }
     });
   }
@@ -212,7 +234,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   Widget _buildDoublePageSpread(Gallery gallery, int spreadIndex) {
-    final spread = _spreadPageIndices(spreadIndex);
+    final spread = _viewportPlan.spreadAt(spreadIndex);
     final leftPage = spread.leftIndex != null
         ? gallery.images[spread.leftIndex!]
         : null;
@@ -378,7 +400,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         scrollDirection: mode == 'verticalPage'
                             ? Axis.vertical
                             : Axis.horizontal,
-                        itemCount: _viewportCount(mode),
+                        itemCount: _viewportPlan.viewportCount,
                         onPageChanged: (index) =>
                             _onPageChanged(gallery, index),
                         itemBuilder: (context, index) {
@@ -591,7 +613,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         return ValueListenableBuilder<int>(
                           valueListenable: _currentPageNotifier,
                           builder: (context, currentPage, _) {
-                            final mode = AppState.instance.readerMode.value;
                             return Row(
                               children: [
                                 InkWell(
@@ -602,7 +623,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                       vertical: 4,
                                     ),
                                     child: Text(
-                                      _currentPageLabel(mode, currentPage),
+                                      _viewportPlan.currentPageLabel(
+                                        currentPage,
+                                      ),
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
@@ -613,14 +636,15 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                 Expanded(
                                   child: Slider(
                                     value: _sliderValue(
-                                      mode,
                                       currentPage,
-                                    ).clamp(0, _sliderMax(mode)),
+                                    ).clamp(0, _sliderMax()),
                                     min: 0,
-                                    max: _sliderMax(mode),
+                                    max: _sliderMax(),
                                     onChanged: (value) => _jumpToPage(
                                       gallery,
-                                      _viewportIndexToPage(mode, value.round()),
+                                      _viewportPlan.viewportIndexToPage(
+                                        value.round(),
+                                      ),
                                     ),
                                   ),
                                 ),

@@ -1,5 +1,92 @@
 import 'package:flutter/material.dart';
 
+enum LKey {
+  appTitle,
+  appSubtitle,
+  commonHome,
+  commonFavorites,
+  commonHistory,
+  commonSettings,
+  commonCancel,
+  commonDelete,
+  commonNa,
+  commonPages,
+  commonRead,
+  searchHint,
+  searchFoundResults,
+  searchNoResults,
+  settingsAppearance,
+  settingsBrowsing,
+  settingsReader,
+  settingsDataManagement,
+  settingsBackupRestore,
+  settingsAbout,
+  settingsAppLanguage,
+  settingsTheme,
+  settingsThemeSystem,
+  settingsThemeLight,
+  settingsThemeDark,
+  settingsThemeOled,
+  settingsListingMode,
+  settingsListingScroll,
+  settingsListingPagination,
+  settingsCardStyle,
+  settingsCardThumbnail,
+  settingsCardDetailed,
+  settingsDefaultLang,
+  settingsDefaultLangDesc,
+  settingsReaderMode,
+  settingsReaderWebtoon,
+  settingsReaderVertical,
+  settingsReaderHorizontal,
+  settingsReaderDoublePage,
+  settingsDoublePageOrder,
+  settingsDoublePageJapanese,
+  settingsDoublePageInternational,
+  settingsPageTurnDirection,
+  settingsPageTurnLeft,
+  settingsPageTurnRight,
+  settingsClearCache,
+  settingsClearCacheDesc,
+  settingsClearCacheTitle,
+  settingsClearCacheBody,
+  settingsCacheCleared,
+  settingsResetApp,
+  settingsResetAppDesc,
+  settingsResetAppTitle,
+  settingsResetAppBody,
+  settingsResetSuccess,
+  settingsExportFavs,
+  settingsImportFavs,
+  settingsExportSuccess,
+  settingsImportSuccess,
+  galleryFailedLoad,
+  galleryArtist,
+  galleryGroup,
+  galleryAddedFav,
+  galleryRemovedFav,
+  galleryInfo,
+  galleryCopyId,
+  galleryIdCopied,
+  galleryType,
+  galleryLanguage,
+  gallerySeries,
+  galleryCharacters,
+  galleryTags,
+  pageJumpTitle,
+  pageJumpHint,
+  pageJumpInvalid,
+  favDeleteTitle,
+  favDeleteBody,
+  historyClearTitle,
+  historyClearBody,
+  langKorean,
+  langEnglish,
+  langJapanese,
+  langChinese,
+  langAll,
+}
+
 class L {
   final Locale locale;
   L(this.locale);
@@ -8,295 +95,295 @@ class L {
     return Localizations.of<L>(context, L)!;
   }
 
-  static const _localizedValues = {
+  static const Map<String, Map<LKey, String>> _localizedValues = {
     'en': {
-      'app_title': 'Donggong',
-      'app_subtitle': 'Modern Hitomi Reader',
-      'common_home': 'Home',
-      'common_favorites': 'Favorites',
-      'common_history': 'History',
-      'common_settings': 'Settings',
-      'common_cancel': 'Cancel',
-      'common_delete': 'Delete',
-      'common_na': 'N/A',
-      'common_pages': 'Pages',
-      'common_read': 'Read',
-      'search_hint': 'Search...',
-      'search_found_results': 'Found {} results',
-      'search_no_results': 'No results found',
-      'settings_appearance': 'Appearance',
-      'settings_browsing': 'Browsing',
-      'settings_reader': 'Reader',
-      'settings_data_management': 'Data Management',
-      'settings_backup_restore': 'Backup & Restore',
-      'settings_about': 'About',
-      'settings_app_language': 'App Language',
-      'settings_theme': 'Theme',
-      'settings_theme_system': 'System',
-      'settings_theme_light': 'Light',
-      'settings_theme_dark': 'Dark',
-      'settings_theme_oled': 'OLED Dark',
-      'settings_listing_mode': 'Listing Mode',
-      'settings_listing_scroll': 'Infinite Scroll',
-      'settings_listing_pagination': 'Pagination',
-      'settings_card_style': 'Card Style',
-      'settings_card_thumbnail': 'Thumbnail',
-      'settings_card_detailed': 'Detailed',
-      'settings_default_lang': 'Content Language',
-      'settings_default_lang_desc': 'Preferred language for gallery lists',
-      'settings_reader_mode': 'Viewer Mode',
-      'settings_reader_webtoon': 'Webtoon',
-      'settings_reader_vertical': 'Vertical Page',
-      'settings_reader_horizontal': 'Horizontal Page',
-      'settings_reader_double_page': 'Two-Page View',
-      'settings_double_page_order': 'Two-Page Order',
-      'settings_double_page_japanese': 'Japanese (Right to Left)',
-      'settings_double_page_international': 'International (Left to Right)',
-      'settings_page_turn_direction': 'Page Turn Direction',
-      'settings_page_turn_left': 'Swipe Left',
-      'settings_page_turn_right': 'Swipe Right',
-      'settings_clear_cache': 'Clear Cache',
-      'settings_clear_cache_desc': 'Remove temporary images',
-      'settings_clear_cache_title': 'Clear Cache?',
-      'settings_clear_cache_body': 'This will delete all cached image files.',
-      'settings_cache_cleared': 'Cache cleared successfully',
-      'settings_reset_app': 'Reset All Data',
-      'settings_reset_app_desc': 'Wipe favorites, history, and settings',
-      'settings_reset_app_title': 'Reset Everything?',
-      'settings_reset_app_body':
+      LKey.appTitle: 'Donggong',
+      LKey.appSubtitle: 'Modern Hitomi Reader',
+      LKey.commonHome: 'Home',
+      LKey.commonFavorites: 'Favorites',
+      LKey.commonHistory: 'History',
+      LKey.commonSettings: 'Settings',
+      LKey.commonCancel: 'Cancel',
+      LKey.commonDelete: 'Delete',
+      LKey.commonNa: 'N/A',
+      LKey.commonPages: 'Pages',
+      LKey.commonRead: 'Read',
+      LKey.searchHint: 'Search...',
+      LKey.searchFoundResults: 'Found {} results',
+      LKey.searchNoResults: 'No results found',
+      LKey.settingsAppearance: 'Appearance',
+      LKey.settingsBrowsing: 'Browsing',
+      LKey.settingsReader: 'Reader',
+      LKey.settingsDataManagement: 'Data Management',
+      LKey.settingsBackupRestore: 'Backup & Restore',
+      LKey.settingsAbout: 'About',
+      LKey.settingsAppLanguage: 'App Language',
+      LKey.settingsTheme: 'Theme',
+      LKey.settingsThemeSystem: 'System',
+      LKey.settingsThemeLight: 'Light',
+      LKey.settingsThemeDark: 'Dark',
+      LKey.settingsThemeOled: 'OLED Dark',
+      LKey.settingsListingMode: 'Listing Mode',
+      LKey.settingsListingScroll: 'Infinite Scroll',
+      LKey.settingsListingPagination: 'Pagination',
+      LKey.settingsCardStyle: 'Card Style',
+      LKey.settingsCardThumbnail: 'Thumbnail',
+      LKey.settingsCardDetailed: 'Detailed',
+      LKey.settingsDefaultLang: 'Content Language',
+      LKey.settingsDefaultLangDesc: 'Preferred language for gallery lists',
+      LKey.settingsReaderMode: 'Viewer Mode',
+      LKey.settingsReaderWebtoon: 'Webtoon',
+      LKey.settingsReaderVertical: 'Vertical Page',
+      LKey.settingsReaderHorizontal: 'Horizontal Page',
+      LKey.settingsReaderDoublePage: 'Two-Page View',
+      LKey.settingsDoublePageOrder: 'Two-Page Order',
+      LKey.settingsDoublePageJapanese: 'Japanese (Right to Left)',
+      LKey.settingsDoublePageInternational: 'International (Left to Right)',
+      LKey.settingsPageTurnDirection: 'Page Turn Direction',
+      LKey.settingsPageTurnLeft: 'Swipe Left',
+      LKey.settingsPageTurnRight: 'Swipe Right',
+      LKey.settingsClearCache: 'Clear Cache',
+      LKey.settingsClearCacheDesc: 'Remove temporary images',
+      LKey.settingsClearCacheTitle: 'Clear Cache?',
+      LKey.settingsClearCacheBody: 'This will delete all cached image files.',
+      LKey.settingsCacheCleared: 'Cache cleared successfully',
+      LKey.settingsResetApp: 'Reset All Data',
+      LKey.settingsResetAppDesc: 'Wipe favorites, history, and settings',
+      LKey.settingsResetAppTitle: 'Reset Everything?',
+      LKey.settingsResetAppBody:
           'This action is permanent. Your favorites and settings will be lost.',
-      'settings_reset_success': 'All app data has been reset',
-      'settings_export_favs': 'Export Favorites',
-      'settings_import_favs': 'Import Favorites',
-      'settings_export_success': 'Backup saved successfully',
-      'settings_import_success': 'Favorites restored successfully',
-      'gallery_failed_load': 'Failed to load content',
-      'gallery_artist': 'Artist',
-      'gallery_group': 'Group',
-      'gallery_added_fav': 'Added to favorites',
-      'gallery_removed_fav': 'Removed from favorites',
-      'gallery_info': 'Information',
-      'gallery_copy_id': 'Copy ID',
-      'gallery_id_copied': 'ID copied to clipboard',
-      'gallery_type': 'Type',
-      'gallery_language': 'Language',
-      'gallery_series': 'Series',
-      'gallery_characters': 'Characters',
-      'gallery_tags': 'Tags',
-      'page_jump_title': 'Jump to Page',
-      'page_jump_hint': 'Page number (1-{})',
-      'page_jump_invalid': 'Invalid page number',
-      'fav_delete_title': 'Remove Favorite',
-      'fav_delete_body': 'Do you want to remove "{}" from favorites?',
-      'history_clear_title': 'Clear History?',
-      'history_clear_body': 'All viewing history will be deleted.',
-      'lang_korean': 'Korean',
-      'lang_english': 'English',
-      'lang_japanese': 'Japanese',
-      'lang_chinese': 'Chinese',
-      'lang_all': 'All',
+      LKey.settingsResetSuccess: 'All app data has been reset',
+      LKey.settingsExportFavs: 'Export Favorites',
+      LKey.settingsImportFavs: 'Import Favorites',
+      LKey.settingsExportSuccess: 'Backup saved successfully',
+      LKey.settingsImportSuccess: 'Favorites restored successfully',
+      LKey.galleryFailedLoad: 'Failed to load content',
+      LKey.galleryArtist: 'Artist',
+      LKey.galleryGroup: 'Group',
+      LKey.galleryAddedFav: 'Added to favorites',
+      LKey.galleryRemovedFav: 'Removed from favorites',
+      LKey.galleryInfo: 'Information',
+      LKey.galleryCopyId: 'Copy ID',
+      LKey.galleryIdCopied: 'ID copied to clipboard',
+      LKey.galleryType: 'Type',
+      LKey.galleryLanguage: 'Language',
+      LKey.gallerySeries: 'Series',
+      LKey.galleryCharacters: 'Characters',
+      LKey.galleryTags: 'Tags',
+      LKey.pageJumpTitle: 'Jump to Page',
+      LKey.pageJumpHint: 'Page number (1-{})',
+      LKey.pageJumpInvalid: 'Invalid page number',
+      LKey.favDeleteTitle: 'Remove Favorite',
+      LKey.favDeleteBody: 'Do you want to remove "{}" from favorites?',
+      LKey.historyClearTitle: 'Clear History?',
+      LKey.historyClearBody: 'All viewing history will be deleted.',
+      LKey.langKorean: 'Korean',
+      LKey.langEnglish: 'English',
+      LKey.langJapanese: 'Japanese',
+      LKey.langChinese: 'Chinese',
+      LKey.langAll: 'All',
     },
     'ko': {
-      'app_title': '동공',
-      'app_subtitle': '가벼운 hitomi.la 리더',
-      'common_home': '홈',
-      'common_favorites': '즐겨찾기',
-      'common_history': '기록',
-      'common_settings': '설정',
-      'common_cancel': '취소',
-      'common_delete': '삭제',
-      'common_na': 'N/A',
-      'common_pages': '페이지',
-      'common_read': '읽기',
-      'search_hint': '검색...',
-      'search_found_results': '총 {}개 결과',
-      'search_no_results': '검색 결과가 없습니다',
-      'settings_appearance': '화면 설정',
-      'settings_browsing': '탐색 설정',
-      'settings_reader': '리더 설정',
-      'settings_data_management': '데이터 관리',
-      'settings_backup_restore': '백업 및 복구',
-      'settings_about': '정보',
-      'settings_app_language': '앱 언어',
-      'settings_theme': '테마',
-      'settings_theme_system': '시스템 설정',
-      'settings_theme_light': '라이트 모드',
-      'settings_theme_dark': '다크 모드',
-      'settings_theme_oled': 'OLED 다크',
-      'settings_listing_mode': '목록 표시 방식',
-      'settings_listing_scroll': '스크롤 보기',
-      'settings_listing_pagination': '페이지 보기',
-      'settings_card_style': '카드 스타일',
-      'settings_card_thumbnail': '썸네일 위주',
-      'settings_card_detailed': '정보 위주',
-      'settings_default_lang': '콘텐츠 언어',
-      'settings_default_lang_desc': '볼 작품의 언어 (리스트, 검색 시 사용)',
-      'settings_reader_mode': '보기 방식',
-      'settings_reader_webtoon': '웹툰(연속) 보기',
-      'settings_reader_vertical': '세로 넘기기',
-      'settings_reader_horizontal': '가로 넘기기',
-      'settings_reader_double_page': '두쪽 보기',
-      'settings_double_page_order': '두 쪽 순서',
-      'settings_double_page_japanese': '일본식 (우 -> 좌)',
-      'settings_double_page_international': '국제식 (좌 -> 우)',
-      'settings_page_turn_direction': '넘김 방향',
-      'settings_page_turn_left': '왼쪽 넘김',
-      'settings_page_turn_right': '오른쪽 넘김',
-      'settings_clear_cache': '캐시 삭제',
-      'settings_clear_cache_desc': '임시 저장한 이미지를 삭제합니다.',
-      'settings_clear_cache_title': '캐시를 삭제하시겠습니까?',
-      'settings_clear_cache_body': '모든 이미지 캐시 파일이 삭제됩니다.',
-      'settings_cache_cleared': '캐시가 삭제되었습니다.',
-      'settings_reset_app': '앱 데이터 초기화',
-      'settings_reset_app_desc': '즐겨찾기, 기록, 설정을 모두 삭제합니다.',
-      'settings_reset_app_title': '데이터를 초기화하시겠습니까?',
-      'settings_reset_app_body': '이 작업은 되돌릴 수 없습니다. 모든 즐겨찾기와 설정이 삭제됩니다.',
-      'settings_reset_success': '앱 데이터가 초기화되었습니다.',
-      'settings_export_favs': '즐겨찾기 내보내기',
-      'settings_import_favs': '즐겨찾기 가져오기',
-      'settings_export_success': '백업 파일이 저장되었습니다.',
-      'settings_import_success': '즐겨찾기를 성공적으로 복구했습니다.',
-      'gallery_failed_load': '불러오기에 실패했습니다.',
-      'gallery_artist': '작가',
-      'gallery_group': '그룹',
-      'gallery_added_fav': '즐겨찾기에 추가되었습니다.',
-      'gallery_removed_fav': '즐겨찾기에서 제거되었습니다.',
-      'gallery_info': '상세 정보',
-      'gallery_copy_id': 'ID 복사',
-      'gallery_id_copied': 'ID가 복사되었습니다.',
-      'gallery_type': '유형',
-      'gallery_language': '언어',
-      'gallery_series': '시리즈',
-      'gallery_characters': '캐릭터',
-      'gallery_tags': '태그',
-      'page_jump_title': '페이지 이동',
-      'page_jump_hint': '페이지 번호 (1-{})',
-      'page_jump_invalid': '잘못된 페이지 번호입니다.',
-      'fav_delete_title': '즐겨찾기 삭제',
-      'fav_delete_body': '"{}" 항목을 즐겨찾기에서 삭제하시겠습니까?',
-      'history_clear_title': '기록 삭제',
-      'history_clear_body': '모든 감상 기록이 삭제됩니다.',
-      'lang_korean': '한국어',
-      'lang_english': '영어',
-      'lang_japanese': '일본어',
-      'lang_chinese': '중국어',
-      'lang_all': '전체',
+      LKey.appTitle: '동공',
+      LKey.appSubtitle: '가벼운 hitomi.la 리더',
+      LKey.commonHome: '홈',
+      LKey.commonFavorites: '즐겨찾기',
+      LKey.commonHistory: '기록',
+      LKey.commonSettings: '설정',
+      LKey.commonCancel: '취소',
+      LKey.commonDelete: '삭제',
+      LKey.commonNa: 'N/A',
+      LKey.commonPages: '페이지',
+      LKey.commonRead: '읽기',
+      LKey.searchHint: '검색...',
+      LKey.searchFoundResults: '총 {}개 결과',
+      LKey.searchNoResults: '검색 결과가 없습니다',
+      LKey.settingsAppearance: '화면 설정',
+      LKey.settingsBrowsing: '탐색 설정',
+      LKey.settingsReader: '리더 설정',
+      LKey.settingsDataManagement: '데이터 관리',
+      LKey.settingsBackupRestore: '백업 및 복구',
+      LKey.settingsAbout: '정보',
+      LKey.settingsAppLanguage: '앱 언어',
+      LKey.settingsTheme: '테마',
+      LKey.settingsThemeSystem: '시스템 설정',
+      LKey.settingsThemeLight: '라이트 모드',
+      LKey.settingsThemeDark: '다크 모드',
+      LKey.settingsThemeOled: 'OLED 다크',
+      LKey.settingsListingMode: '목록 표시 방식',
+      LKey.settingsListingScroll: '스크롤 보기',
+      LKey.settingsListingPagination: '페이지 보기',
+      LKey.settingsCardStyle: '카드 스타일',
+      LKey.settingsCardThumbnail: '썸네일 위주',
+      LKey.settingsCardDetailed: '정보 위주',
+      LKey.settingsDefaultLang: '콘텐츠 언어',
+      LKey.settingsDefaultLangDesc: '볼 작품의 언어 (리스트, 검색 시 사용)',
+      LKey.settingsReaderMode: '보기 방식',
+      LKey.settingsReaderWebtoon: '웹툰(연속) 보기',
+      LKey.settingsReaderVertical: '세로 넘기기',
+      LKey.settingsReaderHorizontal: '가로 넘기기',
+      LKey.settingsReaderDoublePage: '두쪽 보기',
+      LKey.settingsDoublePageOrder: '두 쪽 순서',
+      LKey.settingsDoublePageJapanese: '일본식 (우 -> 좌)',
+      LKey.settingsDoublePageInternational: '국제식 (좌 -> 우)',
+      LKey.settingsPageTurnDirection: '넘김 방향',
+      LKey.settingsPageTurnLeft: '왼쪽 넘김',
+      LKey.settingsPageTurnRight: '오른쪽 넘김',
+      LKey.settingsClearCache: '캐시 삭제',
+      LKey.settingsClearCacheDesc: '임시 저장한 이미지를 삭제합니다.',
+      LKey.settingsClearCacheTitle: '캐시를 삭제하시겠습니까?',
+      LKey.settingsClearCacheBody: '모든 이미지 캐시 파일이 삭제됩니다.',
+      LKey.settingsCacheCleared: '캐시가 삭제되었습니다.',
+      LKey.settingsResetApp: '앱 데이터 초기화',
+      LKey.settingsResetAppDesc: '즐겨찾기, 기록, 설정을 모두 삭제합니다.',
+      LKey.settingsResetAppTitle: '데이터를 초기화하시겠습니까?',
+      LKey.settingsResetAppBody: '이 작업은 되돌릴 수 없습니다. 모든 즐겨찾기와 설정이 삭제됩니다.',
+      LKey.settingsResetSuccess: '앱 데이터가 초기화되었습니다.',
+      LKey.settingsExportFavs: '즐겨찾기 내보내기',
+      LKey.settingsImportFavs: '즐겨찾기 가져오기',
+      LKey.settingsExportSuccess: '백업 파일이 저장되었습니다.',
+      LKey.settingsImportSuccess: '즐겨찾기를 성공적으로 복구했습니다.',
+      LKey.galleryFailedLoad: '불러오기에 실패했습니다.',
+      LKey.galleryArtist: '작가',
+      LKey.galleryGroup: '그룹',
+      LKey.galleryAddedFav: '즐겨찾기에 추가되었습니다.',
+      LKey.galleryRemovedFav: '즐겨찾기에서 제거되었습니다.',
+      LKey.galleryInfo: '상세 정보',
+      LKey.galleryCopyId: 'ID 복사',
+      LKey.galleryIdCopied: 'ID가 복사되었습니다.',
+      LKey.galleryType: '유형',
+      LKey.galleryLanguage: '언어',
+      LKey.gallerySeries: '시리즈',
+      LKey.galleryCharacters: '캐릭터',
+      LKey.galleryTags: '태그',
+      LKey.pageJumpTitle: '페이지 이동',
+      LKey.pageJumpHint: '페이지 번호 (1-{})',
+      LKey.pageJumpInvalid: '잘못된 페이지 번호입니다.',
+      LKey.favDeleteTitle: '즐겨찾기 삭제',
+      LKey.favDeleteBody: '"{}" 항목을 즐겨찾기에서 삭제하시겠습니까?',
+      LKey.historyClearTitle: '기록 삭제',
+      LKey.historyClearBody: '모든 감상 기록이 삭제됩니다.',
+      LKey.langKorean: '한국어',
+      LKey.langEnglish: '영어',
+      LKey.langJapanese: '일본어',
+      LKey.langChinese: '중국어',
+      LKey.langAll: '전체',
     },
   };
 
-  String get(String key, [List<String>? args]) {
+  String get(LKey key, [List<String>? args]) {
     String value =
         _localizedValues[locale.languageCode]?[key] ??
         _localizedValues['en']![key] ??
-        key;
+        key.name;
     if (args != null && args.isNotEmpty) {
-      for (var arg in args) {
+      for (final arg in args) {
         value = value.replaceFirst('{}', arg);
       }
     }
     return value;
   }
 
-  String get home => get('common_home');
-  String get favorites => get('common_favorites');
-  String get history => get('common_history');
-  String get settings => get('common_settings');
-  String get cancel => get('common_cancel');
-  String get delete => get('common_delete');
-  String get na => get('common_na');
-  String get pages => get('common_pages');
-  String get read => get('common_read');
+  String get home => get(LKey.commonHome);
+  String get favorites => get(LKey.commonFavorites);
+  String get history => get(LKey.commonHistory);
+  String get settings => get(LKey.commonSettings);
+  String get cancel => get(LKey.commonCancel);
+  String get delete => get(LKey.commonDelete);
+  String get na => get(LKey.commonNa);
+  String get pages => get(LKey.commonPages);
+  String get read => get(LKey.commonRead);
 
-  String get appTitle => get('app_title');
-  String get appSubtitle => get('app_subtitle');
+  String get appTitle => get(LKey.appTitle);
+  String get appSubtitle => get(LKey.appSubtitle);
 
-  String get searchHint => get('search_hint');
+  String get searchHint => get(LKey.searchHint);
   String foundResults(int count) =>
-      get('search_found_results', [count.toString()]);
-  String get noResults => get('search_no_results');
+      get(LKey.searchFoundResults, [count.toString()]);
+  String get noResults => get(LKey.searchNoResults);
 
-  String get appearance => get('settings_appearance');
-  String get browsing => get('settings_browsing');
-  String get reader => get('settings_reader');
-  String get dataManagement => get('settings_data_management');
-  String get backupRestore => get('settings_backup_restore');
-  String get about => get('settings_about');
+  String get appearance => get(LKey.settingsAppearance);
+  String get browsing => get(LKey.settingsBrowsing);
+  String get reader => get(LKey.settingsReader);
+  String get dataManagement => get(LKey.settingsDataManagement);
+  String get backupRestore => get(LKey.settingsBackupRestore);
+  String get about => get(LKey.settingsAbout);
 
-  String get appLanguage => get('settings_app_language');
-  String get theme => get('settings_theme');
-  String get themeSystem => get('settings_theme_system');
-  String get themeLight => get('settings_theme_light');
-  String get themeDark => get('settings_theme_dark');
-  String get themeOled => get('settings_theme_oled');
+  String get appLanguage => get(LKey.settingsAppLanguage);
+  String get theme => get(LKey.settingsTheme);
+  String get themeSystem => get(LKey.settingsThemeSystem);
+  String get themeLight => get(LKey.settingsThemeLight);
+  String get themeDark => get(LKey.settingsThemeDark);
+  String get themeOled => get(LKey.settingsThemeOled);
 
-  String get listingMode => get('settings_listing_mode');
-  String get infiniteScroll => get('settings_listing_scroll');
-  String get pagination => get('settings_listing_pagination');
-  String get cardStyle => get('settings_card_style');
-  String get thumbnail => get('settings_card_thumbnail');
-  String get detailed => get('settings_card_detailed');
-  String get defaultLanguage => get('settings_default_lang');
-  String get defaultLanguageDesc => get('settings_default_lang_desc');
+  String get listingMode => get(LKey.settingsListingMode);
+  String get infiniteScroll => get(LKey.settingsListingScroll);
+  String get pagination => get(LKey.settingsListingPagination);
+  String get cardStyle => get(LKey.settingsCardStyle);
+  String get thumbnail => get(LKey.settingsCardThumbnail);
+  String get detailed => get(LKey.settingsCardDetailed);
+  String get defaultLanguage => get(LKey.settingsDefaultLang);
+  String get defaultLanguageDesc => get(LKey.settingsDefaultLangDesc);
 
-  String get readerMode => get('settings_reader_mode');
-  String get webtoon => get('settings_reader_webtoon');
-  String get verticalPage => get('settings_reader_vertical');
-  String get horizontalPage => get('settings_reader_horizontal');
-  String get doublePage => get('settings_reader_double_page');
-  String get doublePageOrder => get('settings_double_page_order');
-  String get doublePageJapanese => get('settings_double_page_japanese');
+  String get readerMode => get(LKey.settingsReaderMode);
+  String get webtoon => get(LKey.settingsReaderWebtoon);
+  String get verticalPage => get(LKey.settingsReaderVertical);
+  String get horizontalPage => get(LKey.settingsReaderHorizontal);
+  String get doublePage => get(LKey.settingsReaderDoublePage);
+  String get doublePageOrder => get(LKey.settingsDoublePageOrder);
+  String get doublePageJapanese => get(LKey.settingsDoublePageJapanese);
   String get doublePageInternational =>
-      get('settings_double_page_international');
-  String get pageTurnDirection => get('settings_page_turn_direction');
-  String get pageTurnLeft => get('settings_page_turn_left');
-  String get pageTurnRight => get('settings_page_turn_right');
+      get(LKey.settingsDoublePageInternational);
+  String get pageTurnDirection => get(LKey.settingsPageTurnDirection);
+  String get pageTurnLeft => get(LKey.settingsPageTurnLeft);
+  String get pageTurnRight => get(LKey.settingsPageTurnRight);
 
-  String get clearCache => get('settings_clear_cache');
-  String get clearCacheDesc => get('settings_clear_cache_desc');
-  String get clearCacheTitle => get('settings_clear_cache_title');
-  String get clearCacheBody => get('settings_clear_cache_body');
-  String get cacheCleared => get('settings_cache_cleared');
+  String get clearCache => get(LKey.settingsClearCache);
+  String get clearCacheDesc => get(LKey.settingsClearCacheDesc);
+  String get clearCacheTitle => get(LKey.settingsClearCacheTitle);
+  String get clearCacheBody => get(LKey.settingsClearCacheBody);
+  String get cacheCleared => get(LKey.settingsCacheCleared);
 
-  String get resetApp => get('settings_reset_app');
-  String get resetAppDesc => get('settings_reset_app_desc');
-  String get resetAppTitle => get('settings_reset_app_title');
-  String get resetAppBody => get('settings_reset_app_body');
-  String get resetSuccess => get('settings_reset_success');
+  String get resetApp => get(LKey.settingsResetApp);
+  String get resetAppDesc => get(LKey.settingsResetAppDesc);
+  String get resetAppTitle => get(LKey.settingsResetAppTitle);
+  String get resetAppBody => get(LKey.settingsResetAppBody);
+  String get resetSuccess => get(LKey.settingsResetSuccess);
 
-  String get exportFavorites => get('settings_export_favs');
-  String get importFavorites => get('settings_import_favs');
-  String get exportSuccess => get('settings_export_success');
-  String get importSuccess => get('settings_import_success');
+  String get exportFavorites => get(LKey.settingsExportFavs);
+  String get importFavorites => get(LKey.settingsImportFavs);
+  String get exportSuccess => get(LKey.settingsExportSuccess);
+  String get importSuccess => get(LKey.settingsImportSuccess);
 
-  String get galleryFailedLoad => get('gallery_failed_load');
-  String get artist => get('gallery_artist');
-  String get group => get('gallery_group');
-  String get addedToFav => get('gallery_added_fav');
-  String get removedFromFav => get('gallery_removed_fav');
-  String get galleryInfo => get('gallery_info');
-  String get galleryCopyId => get('gallery_copy_id');
-  String get galleryIdCopied => get('gallery_id_copied');
-  String get galleryType => get('gallery_type');
-  String get galleryLanguage => get('gallery_language');
-  String get gallerySeries => get('gallery_series');
-  String get galleryCharacters => get('gallery_characters');
-  String get galleryTags => get('gallery_tags');
+  String get galleryFailedLoad => get(LKey.galleryFailedLoad);
+  String get artist => get(LKey.galleryArtist);
+  String get group => get(LKey.galleryGroup);
+  String get addedToFav => get(LKey.galleryAddedFav);
+  String get removedFromFav => get(LKey.galleryRemovedFav);
+  String get galleryInfo => get(LKey.galleryInfo);
+  String get galleryCopyId => get(LKey.galleryCopyId);
+  String get galleryIdCopied => get(LKey.galleryIdCopied);
+  String get galleryType => get(LKey.galleryType);
+  String get galleryLanguage => get(LKey.galleryLanguage);
+  String get gallerySeries => get(LKey.gallerySeries);
+  String get galleryCharacters => get(LKey.galleryCharacters);
+  String get galleryTags => get(LKey.galleryTags);
 
-  String get pageJumpTitle => get('page_jump_title');
-  String pageJumpHint(int max) => get('page_jump_hint', [max.toString()]);
-  String get pageJumpInvalid => get('page_jump_invalid');
+  String get pageJumpTitle => get(LKey.pageJumpTitle);
+  String pageJumpHint(int max) => get(LKey.pageJumpHint, [max.toString()]);
+  String get pageJumpInvalid => get(LKey.pageJumpInvalid);
 
-  String get favDeleteTitle => get('fav_delete_title');
-  String favDeleteBody(String name) => get('fav_delete_body', [name]);
+  String get favDeleteTitle => get(LKey.favDeleteTitle);
+  String favDeleteBody(String name) => get(LKey.favDeleteBody, [name]);
 
-  String get historyClearTitle => get('history_clear_title');
-  String get historyClearBody => get('history_clear_body');
+  String get historyClearTitle => get(LKey.historyClearTitle);
+  String get historyClearBody => get(LKey.historyClearBody);
 
-  String get langKorean => get('lang_korean');
-  String get langEnglish => get('lang_english');
-  String get langJapanese => get('lang_japanese');
-  String get langChinese => get('lang_chinese');
-  String get langAll => get('lang_all');
+  String get langKorean => get(LKey.langKorean);
+  String get langEnglish => get(LKey.langEnglish);
+  String get langJapanese => get(LKey.langJapanese);
+  String get langChinese => get(LKey.langChinese);
+  String get langAll => get(LKey.langAll);
 }
 
 class LDelegate extends LocalizationsDelegate<L> {

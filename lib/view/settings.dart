@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 import '../core/app_state.dart';
+import '../core/app_updater.dart';
 import '../core/database.dart';
 import '../core/i18n.dart';
 
@@ -17,6 +19,18 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  late final Future<PackageInfo> _packageInfoFuture;
+  bool _isCheckingUpdate = false;
+  bool _isDownloadingUpdate = false;
+  double? _downloadProgress;
+  String? _updateStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    _packageInfoFuture = PackageInfo.fromPlatform();
+  }
+
   String _compactDoublePageOrderLabel(L l, String value) {
     final isKo = l.locale.languageCode == 'ko';
     switch (value) {
@@ -38,6 +52,141 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return isKo ? '오른쪽' : 'Right';
       default:
         return value;
+    }
+  }
+
+  String _otaSubtitle() {
+    final progress = _downloadProgress;
+    if (progress != null) {
+      return 'Downloading update... ${(progress * 100).round()}%';
+    }
+    return _updateStatus ??
+        (Platform.isAndroid
+            ? 'Check and install the latest GitHub release'
+            : 'Side-load OTA is only available on Android');
+  }
+
+  Future<void> _handleOtaUpdateTap(BuildContext context) async {
+    if (!Platform.isAndroid || _isCheckingUpdate || _isDownloadingUpdate) {
+      return;
+    }
+
+    final packageInfo = await _packageInfoFuture;
+
+    if (!context.mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _isCheckingUpdate = true;
+      _updateStatus = 'Checking latest release...';
+    });
+
+    try {
+      final release = await AppUpdater.instance.fetchLatestRelease();
+      if (!context.mounted) return;
+
+      if (release == null) {
+        setState(() {
+          _isCheckingUpdate = false;
+          _updateStatus = 'No installable APK was found in the latest release.';
+        });
+        messenger.showSnackBar(
+          const SnackBar(content: Text('No installable APK was found.')),
+        );
+        return;
+      }
+
+      final hasUpdate = AppUpdater.instance.isUpdateAvailable(
+        currentVersion: packageInfo.version,
+        latestVersion: release.version,
+      );
+      if (!hasUpdate) {
+        setState(() {
+          _isCheckingUpdate = false;
+          _updateStatus = 'Already up to date.';
+        });
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Already up to date (${packageInfo.version}).'),
+          ),
+        );
+        return;
+      }
+
+      setState(() {
+        _isCheckingUpdate = false;
+        _updateStatus = 'Update ${release.version} is available.';
+      });
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Update Available'),
+          content: Text(
+            'Current: ${packageInfo.version}\n'
+            'Latest: ${release.version}\n\n'
+            'Download and install the latest APK from GitHub?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Download'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true || !context.mounted) return;
+
+      setState(() {
+        _isDownloadingUpdate = true;
+        _downloadProgress = 0;
+        _updateStatus = 'Downloading ${release.version}...';
+      });
+
+      final apkFile = await AppUpdater.instance.downloadRelease(
+        release,
+        onProgress: (progress) {
+          if (!context.mounted) return;
+          setState(() => _downloadProgress = progress);
+        },
+      );
+
+      if (!context.mounted) return;
+      setState(() => _updateStatus = 'Opening installer...');
+
+      final installResult = await AppUpdater.instance.installApk(apkFile);
+      if (!context.mounted) return;
+
+      setState(() {
+        _isDownloadingUpdate = false;
+        _downloadProgress = null;
+        _updateStatus = installResult.openedSettings
+            ? 'Allow app installs for Donggong, then tap update again.'
+            : 'Installer opened.';
+      });
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            installResult.openedSettings
+                ? 'Allow installs from this app, then tap update again.'
+                : 'Installer opened for version ${release.version}.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      setState(() {
+        _isCheckingUpdate = false;
+        _isDownloadingUpdate = false;
+        _downloadProgress = null;
+        _updateStatus = 'Update failed: $e';
+      });
+      messenger.showSnackBar(SnackBar(content: Text('Update failed: $e')));
     }
   }
 
@@ -486,7 +635,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 context,
                 icon: Icons.info_outline_rounded,
                 title: 'Donggong',
-                subtitle: 'Version 2.0.0 • Modern Hitomi Reader',
+                subtitle: null,
+                trailing: FutureBuilder<PackageInfo>(
+                  future: _packageInfoFuture,
+                  builder: (context, snapshot) {
+                    final version = snapshot.data?.version;
+                    return Text(
+                      version == null || version.isEmpty
+                          ? '...'
+                          : 'Version $version',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              _buildSettingItem(
+                context,
+                icon: Icons.system_update_alt_rounded,
+                title: 'App Update',
+                subtitle: _otaSubtitle(),
+                trailing: (_isCheckingUpdate || _isDownloadingUpdate)
+                    ? SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          value: _isDownloadingUpdate
+                              ? _downloadProgress
+                              : null,
+                        ),
+                      )
+                    : Icon(
+                        Icons.chevron_right_rounded,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                onTap: () => _handleOtaUpdateTap(context),
               ),
             ],
           ),

@@ -31,11 +31,13 @@ class _HomeSearchBarState extends State<HomeSearchBar>
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final LayerLink _layerLink = LayerLink();
-  
+  final GlobalKey _overlayContentKey = GlobalKey();
+
   OverlayEntry? _overlayEntry;
   List<TagSuggestion> _suggestions = [];
   int _suggestionRequestId = 0;
-  
+  double _lastKeyboardInset = 0;
+
   @override
   void initState() {
     super.initState();
@@ -65,9 +67,17 @@ class _HomeSearchBarState extends State<HomeSearchBar>
   @override
   void didChangeMetrics() {
     super.didChangeMetrics();
-    final keyboardInset =
-        WidgetsBinding.instance.platformDispatcher.views.first.viewInsets.bottom;
-    if (keyboardInset == 0 && _overlayEntry != null) {
+    final keyboardInset = WidgetsBinding
+        .instance
+        .platformDispatcher
+        .views
+        .first
+        .viewInsets
+        .bottom;
+    final keyboardWasVisible = _lastKeyboardInset > 0;
+    _lastKeyboardInset = keyboardInset;
+
+    if (keyboardWasVisible && keyboardInset == 0 && _overlayEntry != null) {
       _suggestionRequestId++;
       _hideOverlay();
       if (_focusNode.hasFocus) {
@@ -90,6 +100,22 @@ class _HomeSearchBarState extends State<HomeSearchBar>
   void _hideOverlay() {
     _overlayEntry?.remove();
     _overlayEntry = null;
+  }
+
+  void _dismissOverlayAndUnfocus() {
+    _suggestionRequestId++;
+    _hideOverlay();
+    if (_focusNode.hasFocus) {
+      _focusNode.unfocus();
+    }
+  }
+
+  bool _containsGlobalPoint(GlobalKey key, Offset position) {
+    final renderObject = key.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox) return false;
+
+    final rect = renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    return rect.contains(position);
   }
 
   void _showOverlay() {
@@ -127,17 +153,15 @@ class _HomeSearchBarState extends State<HomeSearchBar>
     if (lastToken.isEmpty) return;
 
     try {
-      final suggestions = await HitomiManager.instance.getTagSuggestions(lastToken);
-      if (mounted &&
-          _focusNode.hasFocus &&
-          requestId == _suggestionRequestId) {
+      final suggestions = await HitomiManager.instance.getTagSuggestions(
+        lastToken,
+      );
+      if (mounted && _focusNode.hasFocus && requestId == _suggestionRequestId) {
         setState(() => _suggestions = suggestions);
         _updateOverlay();
       }
     } catch (_) {
-      if (mounted &&
-          _focusNode.hasFocus &&
-          requestId == _suggestionRequestId) {
+      if (mounted && _focusNode.hasFocus && requestId == _suggestionRequestId) {
         setState(() => _suggestions = []);
         _hideOverlay(); // Hide if no suggestions and not empty text (to show favs? No, hide)
       }
@@ -148,20 +172,9 @@ class _HomeSearchBarState extends State<HomeSearchBar>
     final currentText = _controller.text;
     final tokens = currentText.split(' ');
     if (tokens.isNotEmpty && !currentText.endsWith(' ')) tokens.removeLast();
-    
+
     tokens.add(TagUtils.normalizeTagLabel(tag));
     final newQuery = '${tokens.join(' ')} ';
-    
-    _controller.text = newQuery;
-    _controller.selection = TextSelection.fromPosition(TextPosition(offset: newQuery.length));
-    
-    _focusNode.requestFocus();
-    _onTextChanged(newQuery);
-  }
-
-  void _replaceQuery(String query) {
-    final normalizedQuery = TagUtils.normalizeQuery(query);
-    final newQuery = normalizedQuery.isEmpty ? '' : '$normalizedQuery ';
 
     _controller.text = newQuery;
     _controller.selection = TextSelection.fromPosition(
@@ -181,9 +194,7 @@ class _HomeSearchBarState extends State<HomeSearchBar>
       final id = int.tryParse(normalizedText);
       if (id != null) {
         Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => ReaderScreen(galleryId: id),
-          ),
+          MaterialPageRoute(builder: (context) => ReaderScreen(galleryId: id)),
         );
         return;
       }
@@ -237,134 +248,223 @@ class _HomeSearchBarState extends State<HomeSearchBar>
     final colorScheme = theme.colorScheme;
 
     return OverlayEntry(
-      builder: (context) => Positioned(
-        width: size.width - 32, // Horizontal Padding
-        child: CompositedTransformFollower(
-          link: _layerLink,
-          showWhenUnlinked: false,
-          offset: Offset(16, size.height + 8),
-          child: Material(
-            elevation: 12,
-            shadowColor: Colors.black.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(20),
-            color: colorScheme.surfaceContainer,
-            clipBehavior: Clip.antiAlias,
-            child: TweenAnimationBuilder<double>(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              tween: Tween(begin: 0.0, end: 1.0),
-              builder: (context, value, child) {
-                return Opacity(
-                  opacity: value,
-                  child: Transform.translate(
-                    offset: Offset(0, (1.0 - value) * -10),
-                    child: child,
-                  ),
-                );
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: (event) {
+                if (_containsGlobalPoint(_overlayContentKey, event.position)) {
+                  return;
+                }
+
+                final searchBarRenderObject = this.context.findRenderObject();
+                if (searchBarRenderObject is RenderBox) {
+                  final searchBarRect =
+                      searchBarRenderObject.localToGlobal(Offset.zero) &
+                      searchBarRenderObject.size;
+                  if (searchBarRect.contains(event.position)) {
+                    return;
+                  }
+                }
+
+                _dismissOverlayAndUnfocus();
               },
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 450),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Favorites Chips Row
-                    ListenableBuilder(
-                      listenable: AppState.instance.favorites,
-                      builder: (context, child) {
-                        final favTags = AppState.instance.favorites.value.allChips.toList();
-                        if (favTags.isEmpty) return const SizedBox.shrink();
-                        
-                        return Container(
-                          height: 56,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            border: Border(bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.3))),
-                          ),
-                          child: ListView.separated(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            scrollDirection: Axis.horizontal,
-                            itemCount: favTags.length,
-                            separatorBuilder: (context, index) => const SizedBox(width: 8),
-                            itemBuilder: (context, index) {
-                              final tagLabel = favTags[index];
-                              final tagInfo = TagInfo.parse(tagLabel);
-
-                              Color chipColor = colorScheme.secondaryContainer.withValues(alpha: 0.5);
-                              Color iconColor = colorScheme.onSecondaryContainer;
-                              IconData icon = TagUtils.iconFor(tagInfo.type);
-
-                              if (tagInfo.type == 'female' || tagInfo.type == 'male') {
-                                iconColor = TagUtils.colorFor(tagInfo.type, colorScheme);
-                                chipColor = TagUtils.backgroundFor(tagInfo.type, colorScheme);
+            ),
+          ),
+          Positioned(
+            width: size.width - 32,
+            child: CompositedTransformFollower(
+              link: _layerLink,
+              showWhenUnlinked: false,
+              offset: Offset(16, size.height + 8),
+              child: KeyedSubtree(
+                key: _overlayContentKey,
+                child: Material(
+                  elevation: 12,
+                  shadowColor: Colors.black.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(20),
+                  color: colorScheme.surfaceContainer,
+                  clipBehavior: Clip.antiAlias,
+                  child: TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    builder: (context, value, child) {
+                      return Opacity(
+                        opacity: value,
+                        child: Transform.translate(
+                          offset: Offset(0, (1.0 - value) * -10),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 450),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListenableBuilder(
+                            listenable: AppState.instance.favorites,
+                            builder: (context, child) {
+                              final favTags = AppState
+                                  .instance
+                                  .favorites
+                                  .value
+                                  .allChips
+                                  .toList();
+                              if (favTags.isEmpty) {
+                                return const SizedBox.shrink();
                               }
 
-                              return Center(
-                                child: Material(
-                                  color: chipColor,
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(20),
-                                    onTap: () => _addTagToQuery(tagLabel),
-                                    onLongPress: () => _deleteFavorite(tagInfo.type, tagInfo.value),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(icon, size: 14, color: iconColor),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            tagInfo.displayLabel,
-                                            style: theme.textTheme.labelSmall?.copyWith(
-                                              color: iconColor,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                              return Container(
+                                height: 56,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: colorScheme.outlineVariant
+                                          .withValues(alpha: 0.3),
                                     ),
                                   ),
+                                ),
+                                child: ListView.separated(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: favTags.length,
+                                  separatorBuilder: (context, index) =>
+                                      const SizedBox(width: 8),
+                                  itemBuilder: (context, index) {
+                                    final tagLabel = favTags[index];
+                                    final tagInfo = TagInfo.parse(tagLabel);
+
+                                    Color chipColor = colorScheme
+                                        .secondaryContainer
+                                        .withValues(alpha: 0.5);
+                                    Color iconColor =
+                                        colorScheme.onSecondaryContainer;
+                                    IconData icon = TagUtils.iconFor(
+                                      tagInfo.type,
+                                    );
+
+                                    if (tagInfo.type == 'female' ||
+                                        tagInfo.type == 'male') {
+                                      iconColor = TagUtils.colorFor(
+                                        tagInfo.type,
+                                        colorScheme,
+                                      );
+                                      chipColor = TagUtils.backgroundFor(
+                                        tagInfo.type,
+                                        colorScheme,
+                                      );
+                                    }
+
+                                    return Center(
+                                      child: Material(
+                                        color: chipColor,
+                                        borderRadius: BorderRadius.circular(20),
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                          onTap: () => _addTagToQuery(tagLabel),
+                                          onLongPress: () => _deleteFavorite(
+                                            tagInfo.type,
+                                            tagInfo.value,
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 8,
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  icon,
+                                                  size: 14,
+                                                  color: iconColor,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  tagInfo.displayLabel,
+                                                  style: theme
+                                                      .textTheme
+                                                      .labelSmall
+                                                      ?.copyWith(
+                                                        color: iconColor,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
                               );
                             },
                           ),
-                        );
-                      },
-                    ),
-                    
-                    // Suggestions List
-                    if (_suggestions.isEmpty)
-                       Padding(
-                         padding: const EdgeInsets.all(24),
-                         child: Text(
-                           AppState.instance.recentSearches.value.isEmpty ? 'Search tags or IDs' : 'Recent Searches',
-                           style: theme.textTheme.labelMedium?.copyWith(color: colorScheme.outline),
-                         ),
-                       )
-                    else
-                    Flexible(
-                      child: ListView.separated(
-                        padding: EdgeInsets.zero,
-                        shrinkWrap: true,
-                        itemCount: _suggestions.length,
-                        separatorBuilder: (context, index) => Divider(height: 1, thickness: 0.5, color: colorScheme.outlineVariant.withValues(alpha: 0.2)),
-                        itemBuilder: (context, index) {
-                          final item = _suggestions[index];
-                          return _buildSuggestionTile(item, theme, colorScheme);
-                        },
+                          if (_suggestions.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                AppState.instance.recentSearches.value.isEmpty
+                                    ? 'Search tags or IDs'
+                                    : 'Recent Searches',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: colorScheme.outline,
+                                ),
+                              ),
+                            )
+                          else
+                            Flexible(
+                              child: ListView.separated(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                itemCount: _suggestions.length,
+                                separatorBuilder: (context, index) => Divider(
+                                  height: 1,
+                                  thickness: 0.5,
+                                  color: colorScheme.outlineVariant.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                ),
+                                itemBuilder: (context, index) {
+                                  final item = _suggestions[index];
+                                  return _buildSuggestionTile(
+                                    item,
+                                    theme,
+                                    colorScheme,
+                                  );
+                                },
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildSuggestionTile(TagSuggestion item, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildSuggestionTile(
+    TagSuggestion item,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     IconData icon = item.type == 'recent'
         ? Icons.history_rounded
         : TagUtils.iconFor(item.type);
@@ -389,7 +489,11 @@ class _HomeSearchBarState extends State<HomeSearchBar>
             if (item.type != 'recent')
               TextSpan(
                 text: '${item.type}: ',
-                style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13),
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
               ),
             TextSpan(
               text: item.tag,
@@ -398,7 +502,7 @@ class _HomeSearchBarState extends State<HomeSearchBar>
           ],
         ),
       ),
-      trailing: item.count > 0 
+      trailing: item.count > 0
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
@@ -406,8 +510,11 @@ class _HomeSearchBarState extends State<HomeSearchBar>
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${item.count}', 
-                style: theme.textTheme.labelSmall?.copyWith(color: colorScheme.outline, fontWeight: FontWeight.bold),
+                '${item.count}',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.outline,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             )
           : IconButton(
@@ -415,14 +522,14 @@ class _HomeSearchBarState extends State<HomeSearchBar>
               onPressed: () async {
                 if (item.type == 'recent') {
                   await AppState.instance.removeRecentSearch(item.tag);
-                  _onTextChanged(''); 
+                  _onTextChanged('');
                 }
               },
               color: colorScheme.outline,
             ),
       onTap: () {
         if (item.type == 'recent') {
-          _replaceQuery(item.tag);
+          _onSubmit(item.tag);
         } else {
           _addTagToQuery('${item.type}:${item.tag}');
         }
@@ -439,17 +546,25 @@ class _HomeSearchBarState extends State<HomeSearchBar>
     return CompositedTransformTarget(
       link: _layerLink,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), // Added bottom padding to let shadow breathe
+        padding: const EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          12,
+        ), // Added bottom padding to let shadow breathe
         child: Container(
-          height: 56, 
+          height: 56,
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh, 
+            color: colorScheme.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: theme.brightness == Brightness.dark ? 0.3 : 0.12),
+                color: Colors.black.withValues(
+                  alpha: theme.brightness == Brightness.dark ? 0.3 : 0.12,
+                ),
                 blurRadius: 12,
-                spreadRadius: 0, // Reset spreadRadius to prevent artifacting, rely on padding
+                spreadRadius:
+                    0, // Reset spreadRadius to prevent artifacting, rely on padding
                 offset: const Offset(0, 4),
               ),
             ],
@@ -466,24 +581,27 @@ class _HomeSearchBarState extends State<HomeSearchBar>
                 child: TextField(
                   controller: _controller,
                   focusNode: _focusNode,
-                  textAlignVertical: TextAlignVertical.center, // Ensure text is centered vertically
-                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                  textAlignVertical: TextAlignVertical
+                      .center, // Ensure text is centered vertically
                   decoration: InputDecoration(
                     hintText: l.searchHint,
                     hintStyle: TextStyle(
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.5,
+                      ),
                       fontWeight: FontWeight.w400,
                     ),
                     border: InputBorder.none,
-                    isCollapsed: true, // Use isCollapsed for better height control
-                    contentPadding: const EdgeInsets.symmetric(vertical: 12), 
+                    isCollapsed:
+                        true, // Use isCollapsed for better height control
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   style: theme.textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.w500,
                     color: colorScheme.onSurface,
                   ),
                   onChanged: (val) {
-                    setState(() {}); 
+                    setState(() {});
                     _onTextChanged(val);
                   },
                   onSubmitted: _onSubmit,
@@ -495,7 +613,7 @@ class _HomeSearchBarState extends State<HomeSearchBar>
                   onPressed: () {
                     _controller.clear();
                     _hideOverlay();
-                    widget.onSubmitted(''); 
+                    widget.onSubmitted('');
                   },
                   color: colorScheme.onSurfaceVariant,
                 ),
