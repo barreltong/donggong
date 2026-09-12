@@ -1,0 +1,261 @@
+package com.example.donggong.ui.screens
+
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.example.donggong.core.DonggongBridge
+import com.example.donggong.data.DbManager
+import com.example.donggong.data.DonggongJsonBackup
+import com.example.donggong.data.Favorites
+import com.example.donggong.data.Gallery
+import com.example.donggong.ui.components.GalleryCard
+import com.example.donggong.ui.components.TagChip
+import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun FavoritesScreen(
+    favorites: Favorites,
+    onFavoriteToggle: (String, String, Gallery?) -> Unit,
+    onFavoritesImported: (Favorites) -> Unit,
+    onGalleryClick: (Long) -> Unit,
+    onSearchTag: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var favoriteGalleries by remember { mutableStateOf<List<Gallery>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    var showImportDialog by remember { mutableStateOf(false) }
+    var importJsonText by remember { mutableStateOf("") }
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
+
+    LaunchedEffect(favorites.galleries) {
+        if (favorites.galleries.isEmpty()) {
+            favoriteGalleries = emptyList()
+            return@LaunchedEffect
+        }
+        isLoading = true
+        val ids = favorites.galleries.toList()
+        val cached = DbManager.getCachedGalleries(ids)
+        val loaded = ids.map { id ->
+            cached[id] ?: DonggongBridge.getDetail(id)
+        }
+        favoriteGalleries = loaded.filter { it.id != 0L }
+        isLoading = false
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("즐겨찾기") },
+                actions = {
+                    IconButton(onClick = { showImportDialog = true }) {
+                        Icon(Icons.Rounded.FileUpload, contentDescription = "Import JSON")
+                    }
+                    IconButton(onClick = {
+                        val backup = DonggongJsonBackup(
+                            favoriteId = favorites.galleries.toList(),
+                            favoriteArtist = favorites.artists.toList(),
+                            favoriteTag = favorites.tags.toList(),
+                            favoriteLanguage = favorites.languages.toList(),
+                            favoriteGroup = favorites.groups.toList(),
+                            favoriteParody = favorites.parodys.toList(),
+                            favoriteCharacter = favorites.characters.toList()
+                        )
+                        val exported = json.encodeToString(backup)
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("donggong_favorites", exported))
+                        Toast.makeText(context, "즐겨찾기 JSON이 클립보드에 복사되었습니다.", Toast.LENGTH_SHORT).show()
+                    }) {
+                        Icon(Icons.Rounded.FileDownload, contentDescription = "Export JSON")
+                    }
+                }
+            )
+        },
+        modifier = modifier
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            PrimaryTabRow(selectedTabIndex = selectedTab) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    text = { Text("작품 (${favorites.galleries.size})") }
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    text = { Text("태그 (${favorites.allChips.size})") }
+                )
+            }
+
+            if (selectedTab == 0) {
+                if (isLoading) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else if (favoriteGalleries.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("즐겨찾기한 작품이 없습니다.")
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(favoriteGalleries, key = { it.id }) { gallery ->
+                            GalleryCard(
+                                gallery = gallery,
+                                isFavorite = true,
+                                onFavoriteToggle = { onFavoriteToggle("gallery", gallery.id.toString(), gallery) },
+                                onClick = { onGalleryClick(gallery.id) },
+                                onTagClick = onSearchTag,
+                                viewMode = "detailed"
+                            )
+                        }
+                    }
+                }
+            } else {
+                if (favorites.allChips.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("즐겨찾기한 태그가 없습니다.")
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                    ) {
+                        item {
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                favorites.allChips.forEach { chip ->
+                                    TagChip(
+                                        tag = chip,
+                                        onClick = onSearchTag,
+                                        onLongClick = { onFavoriteToggle("tag", chip, null) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showImportDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportDialog = false },
+            title = { Text("즐겨찾기 가져오기") },
+            text = {
+                Column {
+                    Text("Donggong 또는 Pupil 백업 JSON을 붙여넣으세요:")
+                    OutlinedTextField(
+                        value = importJsonText,
+                        onValueChange = { importJsonText = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        maxLines = 6
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    try {
+                        val parsed = json.parseToJsonElement(importJsonText).jsonObject
+                        val newFavs = if (parsed.containsKey("favoriteId")) {
+                            Favorites(
+                                galleries = parsed["favoriteId"]?.jsonArray?.mapNotNull { it.jsonPrimitive.content.toLongOrNull() }?.toSet() ?: emptySet(),
+                                artists = parsed["favoriteArtist"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
+                                tags = parsed["favoriteTag"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
+                                languages = parsed["favoriteLanguage"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
+                                groups = parsed["favoriteGroup"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
+                                parodys = parsed["favoriteParody"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
+                                characters = parsed["favoriteCharacter"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet()
+                            )
+                        } else {
+                            // Pupil format
+                            val galleries = parsed["favorites"]?.jsonArray?.mapNotNull { it.jsonPrimitive.content.toLongOrNull() }?.toSet() ?: emptySet()
+                            Favorites(galleries = galleries)
+                        }
+                        scope.launch {
+                            DbManager.importFavorites(newFavs)
+                            onFavoritesImported(newFavs)
+                            showImportDialog = false
+                            Toast.makeText(context, "즐겨찾기를 가져왔습니다.", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "올바른 JSON 형식이 아닙니다.", Toast.LENGTH_SHORT).show()
+                    }
+                }) {
+                    Text("가져오기")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportDialog = false }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
+}

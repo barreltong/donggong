@@ -1,53 +1,29 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
+# Gradle & Android
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+output-metadata.json
+local.properties
 
-# refs
-for-ai-refs/
+# Signing secrets
+key.properties
+*.jks
+*.keystore
 
-# claude settings
-.claude/
+# Gomobile binaries
+*.aar
+*-sources.jar
+core/core.aar
+core/core-sources.jar
+app/libs/core.aar
 
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
+# IDE & Editor
 .idea/
+*.iml
+.vscode/
+.DS_Store
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
-/android/key.properties
-/android/app/*.jks
-/android/app/*.keystore
-
-# Symbolication related
-app.*.symbols
-
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# Go
+core/vendor/
