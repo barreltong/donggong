@@ -67,6 +67,11 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import com.example.donggong.data.TagInfo
+import com.example.donggong.ui.screens.DetailSheetContent
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -76,7 +81,8 @@ fun FavoritesScreen(
     favorites: Favorites,
     onFavoriteToggle: (String, String, Gallery?) -> Unit,
     onFavoritesImported: (Favorites) -> Unit,
-    onGalleryClick: (Long) -> Unit,
+    onStartReader: (Long, Int) -> Unit,
+    onGalleryClick: ((Long) -> Unit)? = null,
     onSearchTag: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -84,6 +90,7 @@ fun FavoritesScreen(
     var favoriteGalleries by remember { mutableStateOf<List<Gallery>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
     var currentPage by remember { mutableIntStateOf(1) }
+    var selectedDetailId by remember { mutableStateOf<Long?>(null) }
     val pageSize = 25
 
     var showImportDialog by remember { mutableStateOf(false) }
@@ -246,8 +253,14 @@ fun FavoritesScreen(
                                 gallery = gallery,
                                 isFavorite = true,
                                 onFavoriteToggle = { onFavoriteToggle("gallery", gallery.id.toString(), gallery) },
-                                onClick = { onGalleryClick(gallery.id) },
+                                onClick = { onStartReader(gallery.id, 0) },
+                                onLongClick = { selectedDetailId = gallery.id },
+                                favorites = favorites,
                                 onTagClick = onSearchTag,
+                                onTagLongClick = { tag ->
+                                    val parsed = TagInfo.parse(tag)
+                                    onFavoriteToggle(parsed.type, parsed.value, null)
+                                },
                                 viewMode = "detailed"
                             )
                         }
@@ -303,8 +316,12 @@ fun FavoritesScreen(
                                 favorites.allChips.forEach { chip ->
                                     TagChip(
                                         tag = chip,
+                                        isFavorite = true,
                                         onClick = onSearchTag,
-                                        onLongClick = { onFavoriteToggle("tag", chip, null) }
+                                        onLongClick = { tagStr ->
+                                            val parsed = TagInfo.parse(tagStr)
+                                            onFavoriteToggle(parsed.type, parsed.value, null)
+                                        }
                                     )
                                 }
                             }
@@ -378,5 +395,30 @@ fun FavoritesScreen(
             },
             shape = RoundedCornerShape(20.dp)
         )
+    }
+
+    selectedDetailId?.let { detId ->
+        ModalBottomSheet(
+            onDismissRequest = { selectedDetailId = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
+            containerColor = MaterialTheme.colorScheme.surface,
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        ) {
+            DetailSheetContent(
+                galleryId = detId,
+                favorites = favorites,
+                onFavoriteToggle = onFavoriteToggle,
+                onStartReader = { targetId, page ->
+                    selectedDetailId = null
+                    onStartReader(targetId, page)
+                },
+                onSearchTag = { tag ->
+                    selectedDetailId = null
+                    onSearchTag(tag)
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }

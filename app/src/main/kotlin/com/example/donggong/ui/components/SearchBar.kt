@@ -10,9 +10,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -21,6 +24,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Card
@@ -32,6 +36,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,6 +66,7 @@ fun DonggongSearchBar(
     favorites: Favorites,
     recentSearches: List<String>,
     onRemoveRecentSearch: (String) -> Unit,
+    onClearAllRecentSearches: (() -> Unit)? = null,
     trailingAction: @Composable (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -70,7 +76,7 @@ fun DonggongSearchBar(
 
     LaunchedEffect(query) {
         if (query.isNotBlank() && isFocused) {
-            delay(250) // debounce
+            delay(250)
             val lastWord = query.trim().split(Regex("\\s+")).lastOrNull() ?: ""
             val clean = lastWord.substringAfter(':')
             if (clean.length >= 2) {
@@ -88,25 +94,25 @@ fun DonggongSearchBar(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .padding(horizontal = 8.dp, vertical = 3.dp)
         ) {
             OutlinedTextField(
                 value = query,
                 onValueChange = onQueryChange,
-                textStyle = TextStyle(fontSize = 13.5.sp),
+                textStyle = TextStyle(fontSize = 13.sp),
                 placeholder = {
                     Text(
                         "태그, 작가, 작품 검색...",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        fontSize = 12.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Rounded.Search,
                         contentDescription = "Search",
-                        tint = if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
+                        tint = if (isFocused) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp)
                     )
                 },
                 trailingIcon = {
@@ -116,13 +122,13 @@ fun DonggongSearchBar(
                                 onQueryChange("")
                                 suggestions = emptyList()
                             },
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Clear,
                                 contentDescription = "Clear",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
                         }
                     }
@@ -132,8 +138,8 @@ fun DonggongSearchBar(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                    focusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
                 ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(
@@ -144,6 +150,7 @@ fun DonggongSearchBar(
                 ),
                 modifier = Modifier
                     .weight(1f)
+                    .height(38.dp)
                     .onFocusChanged { isFocused = it.isFocused }
             )
 
@@ -173,134 +180,169 @@ fun DonggongSearchBar(
             }
         }
 
-        // Suggestions overlay
+        // Recent Searches & Suggestions Popup Card
         AnimatedVisibility(
             visible = isFocused && (suggestions.isNotEmpty() || (query.isEmpty() && recentSearches.isNotEmpty())),
             enter = fadeIn(),
             exit = fadeOut()
         ) {
             Card(
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(6.dp)) {
+                Column(modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
+                    // Recent Searches (Scrollable)
                     if (query.isEmpty() && recentSearches.isNotEmpty()) {
-                        Text(
-                            text = "최근 검색",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                        recentSearches.take(6).forEach { recent ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        focusManager.clearFocus()
-                                        onQueryChange(recent)
-                                        onSearch(recent)
-                                    }
-                                    .padding(horizontal = 8.dp, vertical = 5.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 3.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "최근 검색",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (onClearAllRecentSearches != null) {
+                                TextButton(
+                                    onClick = onClearAllRecentSearches,
+                                    modifier = Modifier.height(24.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.History,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = recent,
-                                        fontSize = 12.5.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        text = "모두 지우기",
+                                        fontSize = 10.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                                     )
                                 }
-                                IconButton(
-                                    onClick = { onRemoveRecentSearch(recent) },
-                                    modifier = Modifier.size(20.dp)
+                            }
+                        }
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 220.dp)
+                        ) {
+                            items(recentSearches, key = { it }) { recent ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            focusManager.clearFocus()
+                                            onQueryChange(recent)
+                                            onSearch(recent)
+                                        }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Clear,
-                                        contentDescription = "Delete",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(14.dp)
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.History,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(7.dp))
+                                        Text(
+                                            text = recent,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { onRemoveRecentSearch(recent) },
+                                        modifier = Modifier.size(18.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Clear,
+                                            contentDescription = "Delete",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
 
+                    // Suggestions (Scrollable)
                     if (suggestions.isNotEmpty()) {
                         Text(
                             text = "추천 검색어",
-                            fontSize = 11.sp,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
-                        suggestions.take(8).forEach { s ->
-                            val fullTag = if (s.type.isNotEmpty()) "${s.type}:${s.tag}" else s.tag
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        focusManager.clearFocus()
-                                        val parts = query.trim().split(Regex("\\s+")).toMutableList()
-                                        if (parts.isNotEmpty()) {
-                                            parts[parts.lastIndex] = fullTag
-                                        } else {
-                                            parts.add(fullTag)
-                                        }
-                                        val newQuery = parts.joinToString(" ") + " "
-                                        onQueryChange(newQuery)
-                                        onSearch(newQuery.trim())
-                                    }
-                                    .padding(horizontal = 8.dp, vertical = 5.dp)
-                            ) {
+
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 220.dp)
+                        ) {
+                            items(suggestions) { s ->
+                                val fullTag = if (s.type.isNotEmpty()) "${s.type}:${s.tag}" else s.tag
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            focusManager.clearFocus()
+                                            val parts = query.trim().split(Regex("\\s+")).toMutableList()
+                                            if (parts.isNotEmpty()) {
+                                                parts[parts.lastIndex] = fullTag
+                                            } else {
+                                                parts.add(fullTag)
+                                            }
+                                            val newQuery = parts.joinToString(" ") + " "
+                                            onQueryChange(newQuery)
+                                            onSearch(newQuery.trim())
+                                        }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = tagIcon(s.type),
-                                        contentDescription = s.type,
-                                        tint = tagColor(s.type),
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = fullTag,
-                                        fontSize = 12.5.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                                if (s.count > 0) {
-                                    Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = MaterialTheme.colorScheme.surfaceContainerHighest
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
                                     ) {
-                                        Text(
-                                            text = "${s.count}",
-                                            fontSize = 10.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                        Icon(
+                                            imageVector = tagIcon(s.type),
+                                            contentDescription = s.type,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                            modifier = Modifier.size(13.dp)
                                         )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = fullTag,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    if (s.count > 0) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.surfaceContainerHighest
+                                        ) {
+                                            Text(
+                                                text = "${s.count}",
+                                                fontSize = 9.5.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }

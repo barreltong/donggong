@@ -2,8 +2,9 @@ package com.example.donggong.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,9 +45,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.donggong.data.Favorites
 import com.example.donggong.data.Gallery
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun GalleryCard(
     gallery: Gallery,
@@ -54,25 +56,31 @@ fun GalleryCard(
     onFavoriteToggle: () -> Unit,
     onClick: () -> Unit,
     onTagClick: (String) -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    favorites: Favorites? = null,
+    onTagLongClick: ((String) -> Unit)? = null,
     viewMode: String = "detailed",
     modifier: Modifier = Modifier
 ) {
     val heartColor by animateColorAsState(
-        targetValue = if (isFavorite) Color(0xFFFF5252) else MaterialTheme.colorScheme.onSurfaceVariant,
+        targetValue = if (isFavorite) Color(0xFFE53935) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         label = "heartColor"
     )
 
     Card(
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
-        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
+            .clip(RoundedCornerShape(14.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
     ) {
         if (viewMode == "grid") {
             Column {
@@ -92,7 +100,7 @@ fun GalleryCard(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp)
+                            .height(36.dp)
                             .align(Alignment.BottomCenter)
                             .background(
                                 Brush.verticalGradient(
@@ -104,15 +112,132 @@ fun GalleryCard(
                     // Floating heart button
                     Surface(
                         shape = CircleShape,
-                        color = Color.Black.copy(alpha = 0.45f),
+                        color = Color.Black.copy(alpha = 0.5f),
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(4.dp)
-                            .size(26.dp)
+                            .size(24.dp)
                     ) {
                         IconButton(
                             onClick = onFavoriteToggle,
                             modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(
+                                imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                contentDescription = "Favorite",
+                                tint = heartColor,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+
+                    // Page count badge
+                    if (gallery.pageCount > 0) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.Black.copy(alpha = 0.65f),
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(4.dp)
+                        ) {
+                            Text(
+                                text = "${gallery.pageCount}p",
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+
+                    // Language indicator
+                    gallery.language?.let { lang ->
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.Black.copy(alpha = 0.65f),
+                            contentColor = Color.White,
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(4.dp)
+                        ) {
+                            Text(
+                                text = lang,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    text = gallery.title,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 11.5.sp,
+                    lineHeight = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 4.dp)
+                )
+            }
+        } else {
+            Row(modifier = Modifier.padding(5.dp)) {
+                Box(
+                    modifier = Modifier
+                        .width(if (viewMode == "compact") 66.dp else 78.dp)
+                        .height(if (viewMode == "compact") 92.dp else 108.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                ) {
+                    AsyncImage(
+                        model = gallery.thumbnail,
+                        contentDescription = gallery.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    if (gallery.pageCount > 0) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.Black.copy(alpha = 0.7f),
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(2.5.dp)
+                        ) {
+                            Text(
+                                text = "${gallery.pageCount}p",
+                                color = Color.White,
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 0.5.dp)
+                            )
+                        }
+                    }
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 7.dp),
+                    verticalArrangement = Arrangement.spacedBy(1.5.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Text(
+                            text = gallery.title,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontSize = 12.5.sp,
+                            lineHeight = 15.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = onFavoriteToggle,
+                            modifier = Modifier.size(24.dp)
                         ) {
                             Icon(
                                 imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
@@ -123,140 +248,23 @@ fun GalleryCard(
                         }
                     }
 
-                    // Page count badge
-                    if (gallery.pageCount > 0) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = Color.Black.copy(alpha = 0.65f),
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(4.dp)
-                        ) {
-                            Text(
-                                text = "${gallery.pageCount}p",
-                                color = Color.White,
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                    }
-
-                    // Language indicator
-                    gallery.language?.let { lang ->
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(4.dp)
-                        ) {
-                            Text(
-                                text = lang,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                    }
-                }
-
-                Text(
-                    text = gallery.title,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontSize = 11.5.sp,
-                    lineHeight = 14.5.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp)
-                )
-            }
-        } else {
-            Row(modifier = Modifier.padding(7.dp)) {
-                Box(
-                    modifier = Modifier
-                        .width(if (viewMode == "compact") 68.dp else 82.dp)
-                        .height(if (viewMode == "compact") 94.dp else 114.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                ) {
-                    AsyncImage(
-                        model = gallery.thumbnail,
-                        contentDescription = gallery.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                    if (gallery.pageCount > 0) {
-                        Surface(
-                            shape = RoundedCornerShape(3.dp),
-                            color = Color.Black.copy(alpha = 0.7f),
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(3.dp)
-                        ) {
-                            Text(
-                                text = "${gallery.pageCount}p",
-                                color = Color.White,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
-                            )
-                        }
-                    }
-                }
-
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 9.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Text(
-                            text = gallery.title,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontSize = 13.sp,
-                            lineHeight = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(
-                            onClick = onFavoriteToggle,
-                            modifier = Modifier.size(26.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                contentDescription = "Favorite",
-                                tint = heartColor,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-
                     if (gallery.artists.isNotEmpty()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 1.dp)
+                            modifier = Modifier.padding(top = 0.5.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Brush,
                                 contentDescription = "Artist",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(11.dp)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier.size(10.5.dp)
                             )
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(
                                 text = gallery.artists.joinToString(", "),
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -266,33 +274,35 @@ fun GalleryCard(
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 2.dp)
+                        modifier = Modifier.padding(vertical = 1.dp)
                     ) {
                         if (gallery.type.isNotEmpty()) {
                             Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                             ) {
                                 Text(
                                     text = gallery.type,
-                                    fontSize = 10.sp,
+                                    fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
                                 )
                             }
                         }
                         gallery.language?.let { lang ->
                             Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
                             ) {
                                 Text(
                                     text = lang,
-                                    fontSize = 10.sp,
+                                    fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
                                 )
                             }
                         }
@@ -301,14 +311,16 @@ fun GalleryCard(
                     if (viewMode == "detailed" && gallery.tags.isNotEmpty()) {
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(3.dp),
-                            verticalArrangement = Arrangement.spacedBy(3.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                             maxItemsInEachRow = 4,
-                            modifier = Modifier.padding(top = 2.dp)
+                            modifier = Modifier.padding(top = 1.dp)
                         ) {
                             gallery.tags.take(6).forEach { tag ->
                                 TagChip(
                                     tag = tag,
-                                    onClick = onTagClick
+                                    onClick = onTagClick,
+                                    onLongClick = onTagLongClick,
+                                    favorites = favorites
                                 )
                             }
                         }

@@ -208,7 +208,7 @@ fun SettingsScreen(
                     DropdownMenu(
                         expanded = themeMenuExpanded,
                         onDismissRequest = { themeMenuExpanded = false },
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         DropdownOption("시스템 설정", themeMode == "system") {
                             onThemeModeChange("system")
@@ -241,7 +241,7 @@ fun SettingsScreen(
                     DropdownMenu(
                         expanded = cardViewMenuExpanded,
                         onDismissRequest = { cardViewMenuExpanded = false },
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         DropdownOption("상세 보기 (태그/작가)", cardViewMode == "detailed") {
                             onCardViewModeChange("detailed")
@@ -271,7 +271,7 @@ fun SettingsScreen(
                     DropdownMenu(
                         expanded = listingMenuExpanded,
                         onDismissRequest = { listingMenuExpanded = false },
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         DropdownOption("페이지네이션 (하단 바)", listingMode == "pagination") {
                             onListingModeChange("pagination")
@@ -302,7 +302,7 @@ fun SettingsScreen(
                     DropdownMenu(
                         expanded = languageMenuExpanded,
                         onDismissRequest = { languageMenuExpanded = false },
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         DropdownOption("한국어 (korean)", defaultLanguage == "korean") {
                             onDefaultLanguageChange("korean")
@@ -340,7 +340,7 @@ fun SettingsScreen(
                     DropdownMenu(
                         expanded = readerMenuExpanded,
                         onDismissRequest = { readerMenuExpanded = false },
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         DropdownOption("웹툰 모드 (세로 연속)", readerMode == "webtoon") {
                             onReaderModeChange("webtoon")
@@ -373,7 +373,7 @@ fun SettingsScreen(
                     DropdownMenu(
                         expanded = doublePageMenuExpanded,
                         onDismissRequest = { doublePageMenuExpanded = false },
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         DropdownOption("우 → 좌 (일본식 만화)", doublePageOrder == "japanese") {
                             onDoublePageOrderChange("japanese")
@@ -620,15 +620,15 @@ private fun SettingsGroupCard(
     Column {
         Text(
             text = title,
-            fontSize = 12.sp,
+            fontSize = 11.5.sp,
             fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 6.dp, bottom = 4.dp)
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 6.dp, bottom = 3.dp)
         )
         Card(
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(vertical = 2.dp)) {
@@ -647,43 +647,49 @@ private fun SettingsDropdownItem(
     iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     iconBg: Color = MaterialTheme.colorScheme.surfaceContainerHigh
 ) {
-    ListItem(
-        leadingContent = {
-            Surface(
-                shape = CircleShape,
-                color = iconBg,
-                modifier = Modifier.size(32.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        },
-        headlineContent = {
-            Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
-        },
-        supportingContent = {
-            Text(currentValue, fontSize = 11.5.sp, color = MaterialTheme.colorScheme.primary)
-        },
-        trailingContent = {
-            Icon(
-                Icons.AutoMirrored.Rounded.ArrowForwardIos,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.size(12.dp)
-            )
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-    )
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = iconBg,
+            modifier = Modifier.size(28.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(9.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = currentValue,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Icon(
+            Icons.AutoMirrored.Rounded.ArrowForwardIos,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+            modifier = Modifier.size(11.dp)
+        )
+    }
 }
 
 @Composable
@@ -695,33 +701,47 @@ private fun SettingsActionItem(
     iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     iconBg: Color = MaterialTheme.colorScheme.surfaceContainerHigh
 ) {
-    ListItem(
-        leadingContent = {
-            Surface(
-                shape = CircleShape,
-                color = iconBg,
-                modifier = Modifier.size(32.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        },
-        headlineContent = {
-            Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
-        },
-        supportingContent = {
-            Text(subtitle, fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-    )
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = iconBg,
+            modifier = Modifier.size(28.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(9.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = subtitle,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Icon(
+            Icons.AutoMirrored.Rounded.ArrowForwardIos,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+            modifier = Modifier.size(11.dp)
+        )
+    }
 }

@@ -98,44 +98,44 @@ data class Favorites(
     val tags: Set<String> = emptySet()
 ) {
     fun isFavorite(type: String, value: String): Boolean {
-        val canonical = canonicalType(type)
-        val normalized = TagInfo.normalizeTagValue(value)
-        return when (canonical) {
-            "gallery" -> galleries.contains(value.toLongOrNull() ?: 0L)
-            "artist" -> artists.contains(normalized)
-            "group" -> groups.contains(normalized)
-            "character" -> characters.contains(normalized)
-            "series" -> parodys.contains(normalized)
-            "language" -> languages.contains(normalized)
-            else -> if (isTagType(canonical)) tags.contains(TagInfo.parse("$canonical:$value").key) else false
+        val (resolvedType, resolvedValue) = resolveTypeAndValue(type, value)
+        return when (resolvedType) {
+            "gallery" -> galleries.contains(resolvedValue.toLongOrNull() ?: 0L)
+            "artist" -> artists.contains(resolvedValue)
+            "group" -> groups.contains(resolvedValue)
+            "character" -> characters.contains(resolvedValue)
+            "series" -> parodys.contains(resolvedValue)
+            "language" -> languages.contains(resolvedValue)
+            else -> if (isTagType(resolvedType)) {
+                tags.contains(TagInfo.parse("$resolvedType:$resolvedValue").key)
+            } else false
         }
     }
 
     fun toggle(type: String, value: String): Favorites {
-        val canonical = canonicalType(type)
-        val normalized = TagInfo.normalizeTagValue(value)
-        return if (isFavorite(type, value)) {
-            when (canonical) {
-                "gallery" -> copy(galleries = galleries - (value.toLongOrNull() ?: 0L))
-                "artist" -> copy(artists = artists - normalized)
-                "group" -> copy(groups = groups - normalized)
-                "character" -> copy(characters = characters - normalized)
-                "series" -> copy(parodys = parodys - normalized)
-                "language" -> copy(languages = languages - normalized)
-                else -> if (isTagType(canonical)) copy(tags = tags - TagInfo.parse("$canonical:$value").key) else this
+        val (resolvedType, resolvedValue) = resolveTypeAndValue(type, value)
+        return if (isFavorite(resolvedType, resolvedValue)) {
+            when (resolvedType) {
+                "gallery" -> copy(galleries = galleries - (resolvedValue.toLongOrNull() ?: 0L))
+                "artist" -> copy(artists = artists - resolvedValue)
+                "group" -> copy(groups = groups - resolvedValue)
+                "character" -> copy(characters = characters - resolvedValue)
+                "series" -> copy(parodys = parodys - resolvedValue)
+                "language" -> copy(languages = languages - resolvedValue)
+                else -> if (isTagType(resolvedType)) copy(tags = tags - TagInfo.parse("$resolvedType:$resolvedValue").key) else this
             }
         } else {
-            when (canonical) {
+            when (resolvedType) {
                 "gallery" -> {
-                    val id = value.toLongOrNull() ?: 0L
+                    val id = resolvedValue.toLongOrNull() ?: 0L
                     copy(galleries = linkedSetOf(id).apply { addAll(galleries) })
                 }
-                "artist" -> copy(artists = linkedSetOf(normalized).apply { addAll(artists) })
-                "group" -> copy(groups = linkedSetOf(normalized).apply { addAll(groups) })
-                "character" -> copy(characters = linkedSetOf(normalized).apply { addAll(characters) })
-                "series" -> copy(parodys = linkedSetOf(normalized).apply { addAll(parodys) })
-                "language" -> copy(languages = linkedSetOf(normalized).apply { addAll(languages) })
-                else -> if (isTagType(canonical)) copy(tags = linkedSetOf(TagInfo.parse("$canonical:$value").key).apply { addAll(tags) }) else this
+                "artist" -> copy(artists = linkedSetOf(resolvedValue).apply { addAll(artists) })
+                "group" -> copy(groups = linkedSetOf(resolvedValue).apply { addAll(groups) })
+                "character" -> copy(characters = linkedSetOf(resolvedValue).apply { addAll(characters) })
+                "series" -> copy(parodys = linkedSetOf(resolvedValue).apply { addAll(parodys) })
+                "language" -> copy(languages = linkedSetOf(resolvedValue).apply { addAll(languages) })
+                else -> if (isTagType(resolvedType)) copy(tags = linkedSetOf(TagInfo.parse("$resolvedType:$resolvedValue").key).apply { addAll(tags) }) else this
             }
         }
     }
@@ -153,10 +153,26 @@ data class Favorites(
         }
 
     companion object {
-        fun canonicalType(type: String): String = if (type == "parody") "series" else type
+        fun canonicalType(type: String): String = when (type.lowercase().trim()) {
+            "parody" -> "series"
+            else -> type.lowercase().trim()
+        }
+
         fun isTagType(type: String): Boolean = when (canonicalType(type)) {
             "tag", "male", "female" -> true
             else -> false
+        }
+
+        fun resolveTypeAndValue(type: String, value: String): Pair<String, String> {
+            val canonical = canonicalType(type)
+            if (canonical == "gallery") {
+                return Pair("gallery", value.trim())
+            }
+            if (value.contains(':')) {
+                val parsed = TagInfo.parse(value)
+                return Pair(canonicalType(parsed.type), TagInfo.normalizeTagValue(parsed.value))
+            }
+            return Pair(canonical, TagInfo.normalizeTagValue(value))
         }
     }
 }

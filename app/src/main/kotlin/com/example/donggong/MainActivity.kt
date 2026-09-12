@@ -41,6 +41,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.donggong.data.DbManager
 import com.example.donggong.data.Favorites
+import com.example.donggong.data.Gallery
 import com.example.donggong.ui.screens.DetailScreen
 import com.example.donggong.ui.screens.FavoritesScreen
 import com.example.donggong.ui.screens.HistoryScreen
@@ -87,6 +88,22 @@ fun DonggongMainApp() {
     fun updateSetting(key: String, value: String) {
         scope.launch {
             DbManager.saveSetting(key, value)
+        }
+    }
+
+    fun toggleFavorite(type: String, value: String, gallery: Gallery? = null) {
+        scope.launch {
+            val (resolvedType, resolvedValue) = Favorites.resolveTypeAndValue(type, value)
+            val isFav = favorites.isFavorite(resolvedType, resolvedValue)
+            if (isFav) {
+                DbManager.removeFavorite(resolvedType, resolvedValue)
+            } else {
+                DbManager.addFavorite(resolvedType, resolvedValue)
+                if (resolvedType == "gallery" && gallery != null) {
+                    DbManager.cacheGallery(gallery)
+                }
+            }
+            favorites = DbManager.loadFavorites()
         }
     }
 
@@ -204,19 +221,9 @@ fun DonggongMainApp() {
                 composable("home") {
                     HomeScreen(
                         favorites = favorites,
-                        onFavoriteToggle = { type, value, gallery ->
-                            scope.launch {
-                                val isFav = favorites.isFavorite(type, value)
-                                if (isFav) {
-                                    DbManager.removeFavorite(type, value)
-                                } else {
-                                    DbManager.addFavorite(type, value)
-                                    if (type == "gallery" && gallery != null) {
-                                        DbManager.cacheGallery(gallery)
-                                    }
-                                }
-                                favorites = DbManager.loadFavorites()
-                            }
+                        onFavoriteToggle = ::toggleFavorite,
+                        onStartReader = { targetId, page ->
+                            navController.navigate("reader/$targetId?page=$page")
                         },
                         onGalleryClick = { id ->
                             navController.navigate("detail/$id")
@@ -239,27 +246,13 @@ fun DonggongMainApp() {
                     DetailScreen(
                         galleryId = id,
                         favorites = favorites,
-                        onFavoriteToggle = { type, value, gallery ->
-                            scope.launch {
-                                val isFav = favorites.isFavorite(type, value)
-                                if (isFav) {
-                                    DbManager.removeFavorite(type, value)
-                                } else {
-                                    DbManager.addFavorite(type, value)
-                                    if (type == "gallery" && gallery != null) {
-                                        DbManager.cacheGallery(gallery)
-                                    }
-                                }
-                                favorites = DbManager.loadFavorites()
-                            }
-                        },
+                        onFavoriteToggle = ::toggleFavorite,
                         onBack = { navController.popBackStack() },
                         onStartReader = { targetId, page ->
                             navController.navigate("reader/$targetId?page=$page")
                         },
                         onSearchTag = { tag ->
                             navController.popBackStack("home", false)
-                            // Search tag on home
                         }
                     )
                 }
@@ -288,22 +281,12 @@ fun DonggongMainApp() {
                 composable("favorites") {
                     FavoritesScreen(
                         favorites = favorites,
-                        onFavoriteToggle = { type, value, gallery ->
-                            scope.launch {
-                                val isFav = favorites.isFavorite(type, value)
-                                if (isFav) {
-                                    DbManager.removeFavorite(type, value)
-                                } else {
-                                    DbManager.addFavorite(type, value)
-                                    if (type == "gallery" && gallery != null) {
-                                        DbManager.cacheGallery(gallery)
-                                    }
-                                }
-                                favorites = DbManager.loadFavorites()
-                            }
-                        },
+                        onFavoriteToggle = ::toggleFavorite,
                         onFavoritesImported = { imported ->
                             favorites = imported
+                        },
+                        onStartReader = { targetId, page ->
+                            navController.navigate("reader/$targetId?page=$page")
                         },
                         onGalleryClick = { id ->
                             navController.navigate("detail/$id")
@@ -317,19 +300,9 @@ fun DonggongMainApp() {
                 composable("history") {
                     HistoryScreen(
                         favorites = favorites,
-                        onFavoriteToggle = { type, value, gallery ->
-                            scope.launch {
-                                val isFav = favorites.isFavorite(type, value)
-                                if (isFav) {
-                                    DbManager.removeFavorite(type, value)
-                                } else {
-                                    DbManager.addFavorite(type, value)
-                                }
-                                favorites = DbManager.loadFavorites()
-                            }
-                        },
-                        onGalleryClick = { id ->
-                            navController.navigate("detail/$id")
+                        onFavoriteToggle = ::toggleFavorite,
+                        onStartReader = { targetId, page ->
+                            navController.navigate("reader/$targetId?page=$page")
                         },
                         onSearchTag = { tag ->
                             navController.navigate("home")

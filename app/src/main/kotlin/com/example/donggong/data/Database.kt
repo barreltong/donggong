@@ -78,16 +78,17 @@ object DbManager {
             val typeCol = cursor.getColumnIndex("type")
             val valCol = cursor.getColumnIndex("value")
             while (cursor.moveToNext()) {
-                val type = cursor.getString(typeCol)
-                val value = cursor.getString(valCol)
-                when (Favorites.canonicalType(type)) {
-                    "gallery" -> value.toLongOrNull()?.let { galleries.add(it) }
-                    "artist" -> artists.add(value)
-                    "group" -> groups.add(value)
-                    "character" -> characters.add(value)
-                    "series" -> parodys.add(value)
-                    "language" -> languages.add(value)
-                    else -> tags.add(TagInfo.parse("$type:$value").key)
+                val rawType = cursor.getString(typeCol)
+                val rawValue = cursor.getString(valCol)
+                val (resolvedType, resolvedValue) = Favorites.resolveTypeAndValue(rawType, rawValue)
+                when (resolvedType) {
+                    "gallery" -> resolvedValue.toLongOrNull()?.let { galleries.add(it) }
+                    "artist" -> artists.add(resolvedValue)
+                    "group" -> groups.add(resolvedValue)
+                    "character" -> characters.add(resolvedValue)
+                    "series" -> parodys.add(resolvedValue)
+                    "language" -> languages.add(resolvedValue)
+                    else -> tags.add(TagInfo.parse("$resolvedType:$resolvedValue").key)
                 }
             }
         }
@@ -104,17 +105,24 @@ object DbManager {
     }
 
     suspend fun addFavorite(type: String, value: String) = withContext(Dispatchers.IO) {
-        val normalized = TagInfo.normalizeTagValue(value)
-        db.delete("favorites", "type = ? AND value = ?", arrayOf(type, normalized))
+        val (resolvedType, resolvedValue) = Favorites.resolveTypeAndValue(type, value)
+        db.delete("favorites", "type = ? AND value = ?", arrayOf(resolvedType, resolvedValue))
+        if (resolvedType != type) {
+            db.delete("favorites", "type = ? AND value = ?", arrayOf(type, resolvedValue))
+        }
         val cv = ContentValues().apply {
-            put("type", type)
-            put("value", normalized)
+            put("type", resolvedType)
+            put("value", resolvedValue)
         }
         db.insertWithOnConflict("favorites", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
     suspend fun removeFavorite(type: String, value: String) = withContext(Dispatchers.IO) {
-        db.delete("favorites", "type = ? AND value = ?", arrayOf(type, TagInfo.normalizeTagValue(value)))
+        val (resolvedType, resolvedValue) = Favorites.resolveTypeAndValue(type, value)
+        db.delete("favorites", "type = ? AND value = ?", arrayOf(resolvedType, resolvedValue))
+        if (resolvedType != type) {
+            db.delete("favorites", "type = ? AND value = ?", arrayOf(type, resolvedValue))
+        }
     }
 
     suspend fun importFavorites(newFavs: Favorites) = withContext(Dispatchers.IO) {
@@ -198,6 +206,10 @@ object DbManager {
 
     suspend fun removeRecentSearch(query: String) = withContext(Dispatchers.IO) {
         db.delete("recent_searches", "query = ?", arrayOf(query))
+    }
+
+    suspend fun clearRecentSearches() = withContext(Dispatchers.IO) {
+        db.delete("recent_searches", null, null)
     }
 
     // Gallery Cache

@@ -65,12 +65,19 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import com.example.donggong.data.TagInfo
+import com.example.donggong.ui.screens.DetailSheetContent
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     favorites: Favorites,
     onFavoriteToggle: (String, String, Gallery?) -> Unit,
-    onGalleryClick: (Long) -> Unit,
+    onStartReader: (Long, Int) -> Unit,
+    onGalleryClick: ((Long) -> Unit)? = null,
     listingMode: String,
     cardViewMode: String,
     onCardViewModeChange: (String) -> Unit,
@@ -85,6 +92,7 @@ fun HomeScreen(
     var isLoading by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     var recentSearches by remember { mutableStateOf<List<String>>(emptyList()) }
+    var selectedDetailId by remember { mutableStateOf<Long?>(null) }
 
     val listState = rememberLazyListState()
     val gridState = rememberLazyGridState()
@@ -179,6 +187,12 @@ fun HomeScreen(
                     scope.launch {
                         DbManager.removeRecentSearch(rem)
                         recentSearches = DbManager.getRecentSearches()
+                    }
+                },
+                onClearAllRecentSearches = {
+                    scope.launch {
+                        DbManager.clearRecentSearches()
+                        recentSearches = emptyList()
                     }
                 },
                 trailingAction = {
@@ -335,10 +349,16 @@ fun HomeScreen(
                                 gallery = g,
                                 isFavorite = favorites.isFavorite("gallery", g.id.toString()),
                                 onFavoriteToggle = { onFavoriteToggle("gallery", g.id.toString(), g) },
-                                onClick = { onGalleryClick(g.id) },
+                                onClick = { onStartReader(g.id, 0) },
+                                onLongClick = { selectedDetailId = g.id },
+                                favorites = favorites,
                                 onTagClick = { tag ->
                                     query = tag
                                     submitSearch(tag)
+                                },
+                                onTagLongClick = { tag ->
+                                    val parsed = TagInfo.parse(tag)
+                                    onFavoriteToggle(parsed.type, parsed.value, null)
                                 },
                                 viewMode = "grid"
                             )
@@ -369,10 +389,16 @@ fun HomeScreen(
                                 gallery = g,
                                 isFavorite = favorites.isFavorite("gallery", g.id.toString()),
                                 onFavoriteToggle = { onFavoriteToggle("gallery", g.id.toString(), g) },
-                                onClick = { onGalleryClick(g.id) },
+                                onClick = { onStartReader(g.id, 0) },
+                                onLongClick = { selectedDetailId = g.id },
+                                favorites = favorites,
                                 onTagClick = { tag ->
                                     query = tag
                                     submitSearch(tag)
+                                },
+                                onTagLongClick = { tag ->
+                                    val parsed = TagInfo.parse(tag)
+                                    onFavoriteToggle(parsed.type, parsed.value, null)
                                 },
                                 viewMode = cardViewMode
                             )
@@ -392,6 +418,32 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+    }
+
+    selectedDetailId?.let { detId ->
+        ModalBottomSheet(
+            onDismissRequest = { selectedDetailId = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
+            containerColor = MaterialTheme.colorScheme.surface,
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        ) {
+            DetailSheetContent(
+                galleryId = detId,
+                favorites = favorites,
+                onFavoriteToggle = onFavoriteToggle,
+                onStartReader = { targetId, page ->
+                    selectedDetailId = null
+                    onStartReader(targetId, page)
+                },
+                onSearchTag = { tag ->
+                    selectedDetailId = null
+                    query = tag
+                    submitSearch(tag)
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

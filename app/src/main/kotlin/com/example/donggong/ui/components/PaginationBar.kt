@@ -1,10 +1,12 @@
 package com.example.donggong.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -13,7 +15,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,20 +50,20 @@ fun PaginationBar(
     if (showJumpDialog) {
         AlertDialog(
             onDismissRequest = { showJumpDialog = false },
-            title = { Text("페이지 이동", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
+            title = { Text("페이지 이동", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = targetPageInput,
                     onValueChange = { targetPageInput = it.filter { c -> c.isDigit() } },
-                    label = { Text("페이지 번호 (1 ~ $totalPages)", fontSize = 12.sp) },
+                    label = { Text("페이지 번호 (1 ~ $totalPages)", fontSize = 11.5.sp) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = CircleShape,
                     modifier = Modifier.fillMaxWidth()
                 )
             },
             confirmButton = {
-                FilledTonalButton(
+                Button(
                     onClick = {
                         val p = targetPageInput.toIntOrNull()
                         if (p != null && p in 1..totalPages) {
@@ -69,32 +71,37 @@ fun PaginationBar(
                             showJumpDialog = false
                         }
                     },
-                    shape = RoundedCornerShape(8.dp)
+                    shape = CircleShape
                 ) {
-                    Text("이동")
+                    Text("이동", fontSize = 12.sp)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showJumpDialog = false }) {
-                    Text("취소")
+                TextButton(
+                    onClick = { showJumpDialog = false },
+                    shape = CircleShape
+                ) {
+                    Text("취소", fontSize = 12.sp)
                 }
             },
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(20.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         )
     }
 
     Surface(
-        shape = RoundedCornerShape(10.dp),
+        shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainer,
-        tonalElevation = 1.dp,
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+        tonalElevation = 0.dp,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 3.dp)
+            .padding(horizontal = 8.dp, vertical = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 1.dp),
+                .padding(horizontal = 4.dp, vertical = 0.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -102,23 +109,25 @@ fun PaginationBar(
                 IconButton(
                     onClick = { onPageSelected(1) },
                     enabled = currentPage > 1,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
                         Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = "First Page",
-                        modifier = Modifier.size(17.dp)
+                        tint = if (currentPage > 1) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                        modifier = Modifier.size(15.dp)
                     )
                 }
                 IconButton(
                     onClick = { onPageSelected(currentPage - 1) },
                     enabled = currentPage > 1,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
                         Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
                         contentDescription = "Previous Page",
-                        modifier = Modifier.size(20.dp)
+                        tint = if (currentPage > 1) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                        modifier = Modifier.size(17.dp)
                     )
                 }
             }
@@ -128,13 +137,14 @@ fun PaginationBar(
                     targetPageInput = currentPage.toString()
                     showJumpDialog = true
                 },
-                modifier = Modifier.padding(horizontal = 4.dp)
+                shape = CircleShape,
+                modifier = Modifier.padding(horizontal = 2.dp)
             ) {
                 Text(
                     text = "$currentPage / $totalPages",
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 13.5.sp
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 12.5.sp
                 )
             }
 
@@ -142,23 +152,25 @@ fun PaginationBar(
                 IconButton(
                     onClick = { onPageSelected(currentPage + 1) },
                     enabled = currentPage < totalPages,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
                         Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                         contentDescription = "Next Page",
-                        modifier = Modifier.size(20.dp)
+                        tint = if (currentPage < totalPages) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                        modifier = Modifier.size(17.dp)
                     )
                 }
                 IconButton(
                     onClick = { onPageSelected(totalPages) },
                     enabled = currentPage < totalPages,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
                         Icons.AutoMirrored.Rounded.ArrowForward,
                         contentDescription = "Last Page",
-                        modifier = Modifier.size(17.dp)
+                        tint = if (currentPage < totalPages) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }
