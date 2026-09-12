@@ -154,8 +154,8 @@ fun HistoryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 items(historyGalleries, key = { it.id }) { gallery ->
                     GalleryCard(

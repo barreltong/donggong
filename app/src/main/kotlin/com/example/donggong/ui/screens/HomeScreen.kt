@@ -199,8 +199,8 @@ fun HomeScreen(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.surfaceContainer,
                         modifier = Modifier
-                            .padding(end = 12.dp)
-                            .size(44.dp)
+                            .padding(end = 8.dp)
+                            .size(36.dp)
                     ) {
                         IconButton(
                             onClick = {
@@ -220,7 +220,8 @@ fun HomeScreen(
                                     else -> Icons.Rounded.ViewAgenda
                                 },
                                 contentDescription = "View Mode",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
@@ -337,11 +338,11 @@ fun HomeScreen(
                 }
                 cardViewMode == "grid" -> {
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 150.dp),
+                        columns = GridCells.Adaptive(minSize = 130.dp),
                         state = gridState,
-                        contentPadding = PaddingValues(10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(galleries, key = { it.id }) { g ->
@@ -362,10 +363,10 @@ fun HomeScreen(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(16.dp),
+                                        .padding(12.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                                    CircularProgressIndicator(modifier = Modifier.size(28.dp))
                                 }
                             }
                         }
@@ -374,8 +375,8 @@ fun HomeScreen(
                 else -> {
                     LazyColumn(
                         state = listState,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(galleries, key = { it.id }) { g ->

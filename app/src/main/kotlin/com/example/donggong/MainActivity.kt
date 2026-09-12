@@ -369,6 +369,10 @@ fun DonggongMainApp() {
                             defaultLanguage = it
                             updateSetting("defaultLanguage", it)
                         },
+                        favorites = favorites,
+                        onFavoritesImported = { imported ->
+                            favorites = imported
+                        },
                         onResetData = {
                             favorites = Favorites()
                         }

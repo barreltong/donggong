@@ -159,40 +159,41 @@ fun DetailScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 8.dp)
             ) {
                 // Hero Header Card
                 item {
                     Card(
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 10.dp)
+                            .padding(vertical = 4.dp)
                     ) {
-                        Row(modifier = Modifier.padding(14.dp)) {
+                        Row(modifier = Modifier.padding(8.dp)) {
                             AsyncImage(
                                 model = g.thumbnail,
                                 contentDescription = g.title,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .width(115.dp)
-                                    .height(165.dp)
-                                    .clip(RoundedCornerShape(14.dp))
+                                    .width(90.dp)
+                                    .height(128.dp)
+                                    .clip(RoundedCornerShape(8.dp))
                             )
 
                             Column(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .padding(start = 14.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    .padding(start = 10.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
                                     text = g.title,
-                                    style = MaterialTheme.typography.titleMedium,
+                                    style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 3
                                 )
                                 if (g.artists.isNotEmpty()) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -200,61 +201,61 @@ fun DetailScreen(
                                             imageVector = Icons.Rounded.Brush,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(14.dp)
+                                            modifier = Modifier.size(13.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Spacer(modifier = Modifier.width(3.dp))
                                         Text(
                                             text = g.artists.joinToString(", "),
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = MaterialTheme.typography.bodySmall,
                                             fontWeight = FontWeight.Medium,
                                             color = MaterialTheme.colorScheme.primary
                                         )
                                     }
                                 }
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    modifier = Modifier.padding(top = 2.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    modifier = Modifier.padding(top = 1.dp)
                                 ) {
                                     if (g.type.isNotEmpty()) {
                                         Surface(
-                                            shape = RoundedCornerShape(6.dp),
+                                            shape = RoundedCornerShape(5.dp),
                                             color = MaterialTheme.colorScheme.primaryContainer,
                                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                         ) {
                                             Text(
                                                 text = g.type,
-                                                fontSize = 11.sp,
+                                                fontSize = 10.5.sp,
                                                 fontWeight = FontWeight.Medium,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                                             )
                                         }
                                     }
                                     g.language?.let { lang ->
                                         Surface(
-                                            shape = RoundedCornerShape(6.dp),
+                                            shape = RoundedCornerShape(5.dp),
                                             color = MaterialTheme.colorScheme.secondaryContainer,
                                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                         ) {
                                             Text(
                                                 text = lang,
-                                                fontSize = 11.sp,
+                                                fontSize = 10.5.sp,
                                                 fontWeight = FontWeight.Medium,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
                                             )
                                         }
                                     }
-                                }
-                                if (g.pageCount > 0) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = MaterialTheme.colorScheme.surfaceContainerHighest
-                                    ) {
-                                        Text(
-                                            text = "${g.pageCount} 페이지",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
+                                    if (g.pageCount > 0) {
+                                        Surface(
+                                            shape = RoundedCornerShape(5.dp),
+                                            color = MaterialTheme.colorScheme.surfaceContainerHighest
+                                        ) {
+                                            Text(
+                                                text = "${g.pageCount}p",
+                                                fontSize = 10.5.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -267,27 +268,31 @@ fun DetailScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Button(
                             onClick = { onStartReader(g.id, 0) },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp),
-                            shape = RoundedCornerShape(14.dp)
+                                .height(38.dp),
+                            shape = RoundedCornerShape(10.dp)
                         ) {
-                            Icon(Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("열람 시작", fontWeight = FontWeight.Bold)
+                            Icon(
+                                Icons.AutoMirrored.Rounded.MenuBook,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("열람 시작", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
 
                         FilledTonalButton(
                             onClick = { onFavoriteToggle("gallery", g.id.toString(), g) },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp),
-                            shape = RoundedCornerShape(14.dp),
+                                .height(38.dp),
+                            shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.filledTonalButtonColors(
                                 containerColor = if (isFav) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                                 contentColor = if (isFav) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface
@@ -296,10 +301,11 @@ fun DetailScreen(
                             Icon(
                                 imageVector = if (isFav) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                 contentDescription = null,
-                                tint = if (isFav) Color(0xFFFF5252) else MaterialTheme.colorScheme.onSurfaceVariant
+                                tint = if (isFav) Color(0xFFFF5252) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(if (isFav) "즐겨찾기 완료" else "즐겨찾기")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(if (isFav) "즐겨찾기 완료" else "즐겨찾기", fontSize = 13.sp)
                         }
                     }
                 }
@@ -308,24 +314,24 @@ fun DetailScreen(
                 if (g.tags.isNotEmpty()) {
                     item {
                         Card(
-                            shape = RoundedCornerShape(18.dp),
+                            shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 8.dp)
+                                .padding(vertical = 4.dp)
                         ) {
-                            Column(modifier = Modifier.padding(14.dp)) {
+                            Column(modifier = Modifier.padding(8.dp)) {
                                 Text(
                                     text = "태그 목록",
-                                    style = MaterialTheme.typography.titleMedium,
+                                    style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(bottom = 10.dp)
+                                    modifier = Modifier.padding(bottom = 6.dp)
                                 )
                                 FlowRow(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     g.tags.forEach { tag ->
@@ -346,25 +352,25 @@ fun DetailScreen(
                     item {
                         Text(
                             text = "전체 페이지 미리보기 (${g.images.size}p)",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(top = 18.dp, bottom = 10.dp)
+                            modifier = Modifier.padding(top = 10.dp, bottom = 6.dp)
                         )
                     }
 
                     item {
                         Box(modifier = Modifier.height(420.dp)) {
                             LazyVerticalGrid(
-                                columns = GridCells.Adaptive(minSize = 95.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                columns = GridCells.Adaptive(minSize = 85.dp),
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                verticalArrangement = Arrangement.spacedBy(5.dp),
                                 modifier = Modifier.fillMaxSize()
                             ) {
                                 itemsIndexed(g.images) { index, img ->
                                     Box(
                                         modifier = Modifier
                                             .aspectRatio(0.72f)
-                                            .clip(RoundedCornerShape(10.dp))
+                                            .clip(RoundedCornerShape(8.dp))
                                             .clickable { onStartReader(g.id, index) }
                                     ) {
                                         AsyncImage(
@@ -374,16 +380,16 @@ fun DetailScreen(
                                             modifier = Modifier.fillMaxSize()
                                         )
                                         Surface(
-                                            shape = RoundedCornerShape(bottomEnd = 8.dp),
+                                            shape = RoundedCornerShape(bottomEnd = 6.dp),
                                             color = Color.Black.copy(alpha = 0.65f),
                                             modifier = Modifier.align(Alignment.TopStart)
                                         ) {
                                             Text(
                                                 text = "${index + 1}",
                                                 color = Color.White,
-                                                fontSize = 10.sp,
+                                                fontSize = 9.5.sp,
                                                 fontWeight = FontWeight.SemiBold,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                             )
                                         }
                                     }

@@ -71,11 +71,11 @@ fun TagChip(
     val icon = tagIcon(info.type)
 
     Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = color.copy(alpha = 0.16f),
+        shape = RoundedCornerShape(6.dp),
+        color = color.copy(alpha = 0.14f),
         contentColor = color,
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(6.dp))
             .combinedClickable(
                 onClick = { onClick(tag) },
                 onLongClick = { onLongClick?.invoke(tag) }
@@ -83,20 +83,20 @@ fun TagChip(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp)
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = info.type,
-                modifier = Modifier.size(13.dp),
+                modifier = Modifier.size(11.dp),
                 tint = color
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(3.dp))
             Text(
                 text = info.displayLabel,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
-                style = MaterialTheme.typography.labelMedium
+                lineHeight = 13.sp
             )
         }
     }

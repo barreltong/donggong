@@ -126,13 +126,16 @@ data class Favorites(
             }
         } else {
             when (canonical) {
-                "gallery" -> copy(galleries = galleries + (value.toLongOrNull() ?: 0L))
-                "artist" -> copy(artists = artists + normalized)
-                "group" -> copy(groups = groups + normalized)
-                "character" -> copy(characters = characters + normalized)
-                "series" -> copy(parodys = parodys + normalized)
-                "language" -> copy(languages = languages + normalized)
-                else -> if (isTagType(canonical)) copy(tags = tags + TagInfo.parse("$canonical:$value").key) else this
+                "gallery" -> {
+                    val id = value.toLongOrNull() ?: 0L
+                    copy(galleries = linkedSetOf(id).apply { addAll(galleries) })
+                }
+                "artist" -> copy(artists = linkedSetOf(normalized).apply { addAll(artists) })
+                "group" -> copy(groups = linkedSetOf(normalized).apply { addAll(groups) })
+                "character" -> copy(characters = linkedSetOf(normalized).apply { addAll(characters) })
+                "series" -> copy(parodys = linkedSetOf(normalized).apply { addAll(parodys) })
+                "language" -> copy(languages = linkedSetOf(normalized).apply { addAll(languages) })
+                else -> if (isTagType(canonical)) copy(tags = linkedSetOf(TagInfo.parse("$canonical:$value").key).apply { addAll(tags) }) else this
             }
         }
     }

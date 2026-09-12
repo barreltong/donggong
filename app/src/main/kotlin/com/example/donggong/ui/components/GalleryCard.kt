@@ -63,15 +63,15 @@ fun GalleryCard(
     )
 
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
     ) {
         if (viewMode == "grid") {
@@ -92,7 +92,7 @@ fun GalleryCard(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(60.dp)
+                            .height(44.dp)
                             .align(Alignment.BottomCenter)
                             .background(
                                 Brush.verticalGradient(
@@ -107,8 +107,8 @@ fun GalleryCard(
                         color = Color.Black.copy(alpha = 0.45f),
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(6.dp)
-                            .size(32.dp)
+                            .padding(4.dp)
+                            .size(28.dp)
                     ) {
                         IconButton(
                             onClick = onFavoriteToggle,
@@ -118,7 +118,7 @@ fun GalleryCard(
                                 imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                 contentDescription = "Favorite",
                                 tint = heartColor,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
@@ -126,18 +126,18 @@ fun GalleryCard(
                     // Page count badge
                     if (gallery.pageCount > 0) {
                         Surface(
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(4.dp),
                             color = Color.Black.copy(alpha = 0.65f),
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
-                                .padding(6.dp)
+                                .padding(4.dp)
                         ) {
                             Text(
                                 text = "${gallery.pageCount}p",
                                 color = Color.White,
-                                fontSize = 11.sp,
+                                fontSize = 9.5.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                             )
                         }
                     }
@@ -145,18 +145,18 @@ fun GalleryCard(
                     // Language indicator
                     gallery.language?.let { lang ->
                         Surface(
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(4.dp),
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
                             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
-                                .padding(6.dp)
+                                .padding(4.dp)
                         ) {
                             Text(
                                 text = lang,
-                                fontSize = 10.sp,
+                                fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                             )
                         }
                     }
@@ -164,19 +164,22 @@ fun GalleryCard(
 
                 Text(
                     text = gallery.title,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 11.5.sp,
+                    lineHeight = 14.5.sp,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp)
                 )
             }
         } else {
-            Row(modifier = Modifier.padding(10.dp)) {
+            Row(modifier = Modifier.padding(7.dp)) {
                 Box(
                     modifier = Modifier
-                        .width(if (viewMode == "compact") 86.dp else 112.dp)
-                        .height(if (viewMode == "compact") 120.dp else 156.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .width(if (viewMode == "compact") 68.dp else 84.dp)
+                        .height(if (viewMode == "compact") 94.dp else 116.dp)
+                        .clip(RoundedCornerShape(8.dp))
                 ) {
                     AsyncImage(
                         model = gallery.thumbnail,
@@ -186,18 +189,18 @@ fun GalleryCard(
                     )
                     if (gallery.pageCount > 0) {
                         Surface(
-                            shape = RoundedCornerShape(4.dp),
+                            shape = RoundedCornerShape(3.dp),
                             color = Color.Black.copy(alpha = 0.7f),
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
-                                .padding(4.dp)
+                                .padding(3.dp)
                         ) {
                             Text(
                                 text = "${gallery.pageCount}p",
                                 color = Color.White,
-                                fontSize = 10.sp,
+                                fontSize = 9.sp,
                                 fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp)
                             )
                         }
                     }
@@ -206,7 +209,7 @@ fun GalleryCard(
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(start = 12.dp),
+                        .padding(start = 9.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
@@ -216,7 +219,9 @@ fun GalleryCard(
                     ) {
                         Text(
                             text = gallery.title,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontSize = 13.sp,
+                            lineHeight = 16.sp,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -224,12 +229,13 @@ fun GalleryCard(
                         )
                         IconButton(
                             onClick = onFavoriteToggle,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
                                 imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                 contentDescription = "Favorite",
-                                tint = heartColor
+                                tint = heartColor,
+                                modifier = Modifier.size(17.dp)
                             )
                         }
                     }
@@ -237,18 +243,19 @@ fun GalleryCard(
                     if (gallery.artists.isNotEmpty()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 2.dp)
+                            modifier = Modifier.padding(top = 1.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Brush,
                                 contentDescription = "Artist",
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(13.dp)
+                                modifier = Modifier.size(11.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
                                 text = gallery.artists.joinToString(", "),
-                                style = MaterialTheme.typography.labelMedium,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -257,35 +264,35 @@ fun GalleryCard(
                     }
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        modifier = Modifier.padding(vertical = 2.dp)
                     ) {
                         if (gallery.type.isNotEmpty()) {
                             Surface(
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(4.dp),
                                 color = MaterialTheme.colorScheme.primaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                             ) {
                                 Text(
                                     text = gallery.type,
-                                    fontSize = 11.sp,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                 )
                             }
                         }
                         gallery.language?.let { lang ->
                             Surface(
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(4.dp),
                                 color = MaterialTheme.colorScheme.secondaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                             ) {
                                 Text(
                                     text = lang,
-                                    fontSize = 11.sp,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                 )
                             }
                         }
@@ -293,10 +300,10 @@ fun GalleryCard(
 
                     if (viewMode == "detailed" && gallery.tags.isNotEmpty()) {
                         FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                            maxItemsInEachRow = 3,
-                            modifier = Modifier.padding(top = 4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(3.dp),
+                            verticalArrangement = Arrangement.spacedBy(3.dp),
+                            maxItemsInEachRow = 4,
+                            modifier = Modifier.padding(top = 2.dp)
                         ) {
                             gallery.tags.take(6).forEach { tag ->
                                 TagChip(

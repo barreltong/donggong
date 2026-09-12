@@ -73,7 +73,7 @@ object DbManager {
         val languages = mutableSetOf<String>()
         val tags = mutableSetOf<String>()
 
-        val cursor = db.query("favorites", arrayOf("type", "value"), null, null, null, null, "ROWID ASC")
+        val cursor = db.query("favorites", arrayOf("type", "value"), null, null, null, null, "ROWID DESC")
         cursor.use {
             val typeCol = cursor.getColumnIndex("type")
             val valCol = cursor.getColumnIndex("value")
@@ -104,11 +104,13 @@ object DbManager {
     }
 
     suspend fun addFavorite(type: String, value: String) = withContext(Dispatchers.IO) {
+        val normalized = TagInfo.normalizeTagValue(value)
+        db.delete("favorites", "type = ? AND value = ?", arrayOf(type, normalized))
         val cv = ContentValues().apply {
             put("type", type)
-            put("value", TagInfo.normalizeTagValue(value))
+            put("value", normalized)
         }
-        db.insertWithOnConflict("favorites", null, cv, SQLiteDatabase.CONFLICT_IGNORE)
+        db.insertWithOnConflict("favorites", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
     suspend fun removeFavorite(type: String, value: String) = withContext(Dispatchers.IO) {

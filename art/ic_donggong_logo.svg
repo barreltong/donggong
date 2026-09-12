@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#181926" />
+      <stop offset="50%" stop-color="#11121C" />
+      <stop offset="100%" stop-color="#090A10" />
+    </linearGradient>
+    <linearGradient id="irisGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6366F1" />
+      <stop offset="45%" stop-color="#8B5CF6" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#A855F7" />
+      <stop offset="100%" stop-color="#38BDF8" />
+    </linearGradient>
+    <radialGradient id="pupilShadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#07080D" />
+      <stop offset="85%" stop-color="#07080D" />
+      <stop offset="100%" stop-color="#141522" />
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <circle cx="256" cy="256" r="190" fill="none" stroke="url(#irisGrad)" stroke-width="6" opacity="0.4" stroke-dasharray="16 8" />
+  <circle cx="256" cy="256" r="160" fill="none" stroke="url(#irisGrad)" stroke-width="22" />
+  <circle cx="256" cy="256" r="130" fill="url(#pupilShadow)" stroke="#2D3148" stroke-width="3" />
+  <path d="M 180 200 C 210 215, 235 235, 245 285 C 225 280, 195 265, 180 240 Z" fill="url(#glowGrad)" opacity="0.9" />
+  <path d="M 332 200 C 302 215, 277 235, 267 285 C 287 280, 317 265, 332 240 Z" fill="url(#glowGrad)" opacity="0.9" />
+  <circle cx="256" cy="256" r="28" fill="#F8FAFC" />
+  <circle cx="264" cy="248" r="8" fill="#38BDF8" opacity="0.8" />
+  <circle cx="246" cy="242" r="5" fill="#FFFFFF" opacity="0.9" />
+</svg>

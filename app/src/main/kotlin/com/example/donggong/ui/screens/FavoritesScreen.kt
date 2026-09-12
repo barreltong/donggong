@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -60,6 +61,7 @@ import com.example.donggong.data.DonggongJsonBackup
 import com.example.donggong.data.Favorites
 import com.example.donggong.data.Gallery
 import com.example.donggong.ui.components.GalleryCard
+import com.example.donggong.ui.components.PaginationBar
 import com.example.donggong.ui.components.TagChip
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
@@ -81,23 +83,39 @@ fun FavoritesScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     var favoriteGalleries by remember { mutableStateOf<List<Gallery>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
+    var currentPage by remember { mutableIntStateOf(1) }
+    val pageSize = 25
 
     var showImportDialog by remember { mutableStateOf(false) }
     var importJsonText by remember { mutableStateOf("") }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
     val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
 
-    LaunchedEffect(favorites.galleries) {
-        if (favorites.galleries.isEmpty()) {
+    val allIds = remember(favorites.galleries) { favorites.galleries.toList() }
+    val totalPages = maxOf(1, (allIds.size + pageSize - 1) / pageSize)
+
+    LaunchedEffect(totalPages) {
+        if (currentPage > totalPages) {
+            currentPage = totalPages
+        }
+    }
+
+    val startIndex = (currentPage - 1) * pageSize
+    val endIndex = minOf(startIndex + pageSize, allIds.size)
+    val pageIds = if (startIndex < allIds.size) allIds.subList(startIndex, endIndex) else emptyList()
+
+    LaunchedEffect(pageIds) {
+        if (pageIds.isEmpty()) {
             favoriteGalleries = emptyList()
+            isLoading = false
             return@LaunchedEffect
         }
         isLoading = true
-        val ids = favorites.galleries.toList()
-        val cached = DbManager.getCachedGalleries(ids)
-        val loaded = ids.map { id ->
+        val cached = DbManager.getCachedGalleries(pageIds)
+        val loaded = pageIds.map { id ->
             cached[id] ?: DonggongBridge.getDetail(id)
         }
         favoriteGalleries = loaded.filter { it.id != 0L }
@@ -135,6 +153,21 @@ fun FavoritesScreen(
                 )
             )
         },
+        bottomBar = {
+            if (selectedTab == 0 && allIds.isNotEmpty()) {
+                PaginationBar(
+                    currentPage = currentPage,
+                    totalCount = allIds.size,
+                    pageSize = pageSize,
+                    onPageSelected = { p ->
+                        currentPage = p
+                        scope.launch {
+                            listState.scrollToItem(0)
+                        }
+                    }
+                )
+            }
+        },
         modifier = modifier
     ) { innerPadding ->
         Column(
@@ -159,14 +192,14 @@ fun FavoritesScreen(
             }
 
             if (selectedTab == 0) {
-                if (isLoading) {
+                if (isLoading && favoriteGalleries.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(
                             color = MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
                         )
                     }
-                } else if (favoriteGalleries.isEmpty()) {
+                } else if (allIds.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -202,10 +235,11 @@ fun FavoritesScreen(
                     }
                 } else {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(horizontal = 6.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         items(favoriteGalleries, key = { it.id }) { gallery ->
                             GalleryCard(
@@ -258,12 +292,12 @@ fun FavoritesScreen(
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp)
+                            .padding(horizontal = 10.dp, vertical = 8.dp)
                     ) {
                         item {
                             FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 favorites.allChips.forEach { chip ->

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -47,15 +48,15 @@ fun PaginationBar(
     if (showJumpDialog) {
         AlertDialog(
             onDismissRequest = { showJumpDialog = false },
-            title = { Text("페이지 이동", style = MaterialTheme.typography.titleLarge) },
+            title = { Text("페이지 이동", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = targetPageInput,
                     onValueChange = { targetPageInput = it.filter { c -> c.isDigit() } },
-                    label = { Text("이동할 페이지 (1 ~ $totalPages)") },
+                    label = { Text("페이지 번호 (1 ~ $totalPages)", fontSize = 12.sp) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
             },
@@ -67,7 +68,8 @@ fun PaginationBar(
                             onPageSelected(p)
                             showJumpDialog = false
                         }
-                    }
+                    },
+                    shape = RoundedCornerShape(8.dp)
                 ) {
                     Text("이동")
                 }
@@ -77,37 +79,47 @@ fun PaginationBar(
                     Text("취소")
                 }
             },
-            shape = RoundedCornerShape(20.dp)
+            shape = RoundedCornerShape(16.dp)
         )
     }
 
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(10.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
-        tonalElevation = 2.dp,
+        tonalElevation = 1.dp,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .padding(horizontal = 8.dp, vertical = 3.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 2.dp),
+                .padding(horizontal = 4.dp, vertical = 1.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     onClick = { onPageSelected(1) },
-                    enabled = currentPage > 1
+                    enabled = currentPage > 1,
+                    modifier = Modifier.size(32.dp)
                 ) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "First Page")
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "First Page",
+                        modifier = Modifier.size(17.dp)
+                    )
                 }
                 IconButton(
                     onClick = { onPageSelected(currentPage - 1) },
-                    enabled = currentPage > 1
+                    enabled = currentPage > 1,
+                    modifier = Modifier.size(32.dp)
                 ) {
-                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = "Previous Page")
+                    Icon(
+                        Icons.AutoMirrored.Rounded.KeyboardArrowLeft,
+                        contentDescription = "Previous Page",
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 
@@ -115,29 +127,39 @@ fun PaginationBar(
                 onClick = {
                     targetPageInput = currentPage.toString()
                     showJumpDialog = true
-                }
+                },
+                modifier = Modifier.padding(horizontal = 4.dp)
             ) {
                 Text(
                     text = "$currentPage / $totalPages",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
-                    fontSize = 15.sp
+                    fontSize = 13.5.sp
                 )
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     onClick = { onPageSelected(currentPage + 1) },
-                    enabled = currentPage < totalPages
+                    enabled = currentPage < totalPages,
+                    modifier = Modifier.size(32.dp)
                 ) {
-                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = "Next Page")
+                    Icon(
+                        Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        contentDescription = "Next Page",
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
                 IconButton(
                     onClick = { onPageSelected(totalPages) },
-                    enabled = currentPage < totalPages
+                    enabled = currentPage < totalPages,
+                    modifier = Modifier.size(32.dp)
                 ) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = "Last Page")
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowForward,
+                        contentDescription = "Last Page",
+                        modifier = Modifier.size(17.dp)
+                    )
                 }
             }
         }

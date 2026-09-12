@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -85,10 +86,11 @@ fun DonggongSearchBar(
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
+            textStyle = TextStyle(fontSize = 13.5.sp),
             placeholder = {
                 Text(
                     "태그, 작가, 작품 검색...",
-                    style = MaterialTheme.typography.bodyMedium,
+                    fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             },
@@ -96,19 +98,24 @@ fun DonggongSearchBar(
                 Icon(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = "Search",
-                    tint = if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
                 )
             },
             trailingIcon = {
                 if (query.isNotEmpty()) {
-                    IconButton(onClick = {
-                        onQueryChange("")
-                        suggestions = emptyList()
-                    }) {
+                    IconButton(
+                        onClick = {
+                            onQueryChange("")
+                            suggestions = emptyList()
+                        },
+                        modifier = Modifier.size(24.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Rounded.Clear,
                             contentDescription = "Clear",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
@@ -119,7 +126,7 @@ fun DonggongSearchBar(
                 focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
@@ -130,7 +137,7 @@ fun DonggongSearchBar(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 6.dp)
+                .padding(horizontal = 8.dp, vertical = 3.dp)
                 .onFocusChanged { isFocused = it.isFocused }
         )
 
@@ -139,8 +146,8 @@ fun DonggongSearchBar(
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 items(favorites.allChips) { chip ->
                     TagChip(
@@ -161,22 +168,22 @@ fun DonggongSearchBar(
             exit = fadeOut()
         ) {
             Card(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 4.dp)
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(10.dp)) {
+                Column(modifier = Modifier.padding(6.dp)) {
                     if (query.isEmpty() && recentSearches.isNotEmpty()) {
                         Text(
                             text = "최근 검색",
-                            style = MaterialTheme.typography.labelMedium,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                         recentSearches.take(6).forEach { recent ->
                             Row(
@@ -184,13 +191,13 @@ fun DonggongSearchBar(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
+                                    .clip(RoundedCornerShape(8.dp))
                                     .clickable {
                                         focusManager.clearFocus()
                                         onQueryChange(recent)
                                         onSearch(recent)
                                     }
-                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                                    .padding(horizontal = 8.dp, vertical = 5.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -200,24 +207,24 @@ fun DonggongSearchBar(
                                         imageVector = Icons.Rounded.History,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(15.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = recent,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontSize = 12.5.sp,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                                 IconButton(
                                     onClick = { onRemoveRecentSearch(recent) },
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(20.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.Clear,
                                         contentDescription = "Delete",
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(14.dp)
                                     )
                                 }
                             }
@@ -227,10 +234,10 @@ fun DonggongSearchBar(
                     if (suggestions.isNotEmpty()) {
                         Text(
                             text = "추천 검색어",
-                            style = MaterialTheme.typography.labelMedium,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                         suggestions.take(8).forEach { s ->
                             val fullTag = if (s.type.isNotEmpty()) "${s.type}:${s.tag}" else s.tag
@@ -239,7 +246,7 @@ fun DonggongSearchBar(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
+                                    .clip(RoundedCornerShape(8.dp))
                                     .clickable {
                                         focusManager.clearFocus()
                                         val parts = query.trim().split(Regex("\\s+")).toMutableList()
@@ -252,7 +259,7 @@ fun DonggongSearchBar(
                                         onQueryChange(newQuery)
                                         onSearch(newQuery.trim())
                                     }
-                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                                    .padding(horizontal = 8.dp, vertical = 5.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -262,25 +269,25 @@ fun DonggongSearchBar(
                                         imageVector = tagIcon(s.type),
                                         contentDescription = s.type,
                                         tint = tagColor(s.type),
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(13.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = fullTag,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontSize = 12.5.sp,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                                 if (s.count > 0) {
                                     Surface(
-                                        shape = RoundedCornerShape(6.dp),
+                                        shape = RoundedCornerShape(4.dp),
                                         color = MaterialTheme.colorScheme.surfaceContainerHighest
                                     ) {
                                         Text(
                                             text = "${s.count}",
-                                            style = MaterialTheme.typography.labelSmall,
+                                            fontSize = 10.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
                                         )
                                     }
                                 }
