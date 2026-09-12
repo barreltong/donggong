@@ -186,4 +186,14 @@ data class DonggongJsonBackup(
     val favoriteGroup: List<String> = emptyList(),
     val favoriteParody: List<String> = emptyList(),
     val favoriteCharacter: List<String> = emptyList()
-)
+) {
+    fun toFavorites(): Favorites = Favorites(
+        galleries = favoriteId.toSet(),
+        artists = favoriteArtist.toSet(),
+        tags = favoriteTag.toSet(),
+        languages = favoriteLanguage.toSet(),
+        groups = favoriteGroup.toSet(),
+        parodys = favoriteParody.toSet(),
+        characters = favoriteCharacter.toSet()
+    )
+}

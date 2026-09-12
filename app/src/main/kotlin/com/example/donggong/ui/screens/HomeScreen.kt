@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,6 +54,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import com.example.donggong.core.DonggongBridge
 import com.example.donggong.data.DbManager
@@ -93,7 +96,9 @@ fun HomeScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     var recentSearches by remember { mutableStateOf<List<String>>(emptyList()) }
     var selectedDetailId by remember { mutableStateOf<Long?>(null) }
+    var isSearchFocused by remember { mutableStateOf(false) }
 
+    val focusManager = LocalFocusManager.current
     val listState = rememberLazyListState()
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
@@ -150,6 +155,22 @@ fun HomeScreen(
         loadData(1, refresh = true)
     }
 
+    LaunchedEffect(query) {
+        if (query.trim().isEmpty() && activeQuery.isNotEmpty()) {
+            activeQuery = ""
+            currentPage = 1
+            loadData(1, refresh = true)
+            if (cardViewMode == "grid") gridState.scrollToItem(0)
+            else listState.scrollToItem(0)
+        }
+    }
+
+    LaunchedEffect(listState.isScrollInProgress, gridState.isScrollInProgress) {
+        if (listState.isScrollInProgress || gridState.isScrollInProgress) {
+            focusManager.clearFocus()
+        }
+    }
+
     // Infinite scroll listener
     if (listingMode != "pagination") {
         LaunchedEffect(listState, gridState, cardViewMode, galleries.size) {
@@ -195,14 +216,16 @@ fun HomeScreen(
                         recentSearches = emptyList()
                     }
                 },
+                onFocusChanged = { isSearchFocused = it },
                 trailingAction = {
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.surfaceContainer,
-                        modifier = Modifier.size(44.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         IconButton(
                             onClick = {
+                                focusManager.clearFocus()
                                 val nextMode = when (cardViewMode) {
                                     "detailed" -> "compact"
                                     "compact" -> "grid"
@@ -220,7 +243,7 @@ fun HomeScreen(
                                 },
                                 contentDescription = "View Mode",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(19.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
@@ -265,18 +288,21 @@ fun HomeScreen(
         },
         modifier = modifier
     ) { innerPadding ->
-        PullToRefreshBox(
-            isRefreshing = isRefreshing,
-            onRefresh = {
-                isRefreshing = true
-                scope.launch {
-                    loadData(1, refresh = true)
-                }
-            },
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = {
+                    isRefreshing = true
+                    scope.launch {
+                        loadData(1, refresh = true)
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            ) {
             when {
                 isLoading && galleries.isEmpty() -> {
                     Box(
@@ -419,7 +445,22 @@ fun HomeScreen(
                 }
             }
         }
+
+        if (isSearchFocused) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onPress = {
+                                focusManager.clearFocus()
+                            }
+                        )
+                    }
+            )
+        }
     }
+}
 
     selectedDetailId?.let { detId ->
         ModalBottomSheet(

@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,12 +54,9 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -151,15 +149,15 @@ fun SettingsScreen(
         try {
             val parsed = json.parseToJsonElement(rawJson).jsonObject
             val newFavs = if (parsed.containsKey("favoriteId")) {
-                Favorites(
-                    galleries = parsed["favoriteId"]?.jsonArray?.mapNotNull { it.jsonPrimitive.content.toLongOrNull() }?.toSet() ?: emptySet(),
-                    artists = parsed["favoriteArtist"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
-                    tags = parsed["favoriteTag"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
-                    languages = parsed["favoriteLanguage"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
-                    groups = parsed["favoriteGroup"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
-                    parodys = parsed["favoriteParody"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
-                    characters = parsed["favoriteCharacter"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet()
-                )
+                DonggongJsonBackup(
+                    favoriteId = parsed["favoriteId"]?.jsonArray?.mapNotNull { it.jsonPrimitive.content.toLongOrNull() } ?: emptyList(),
+                    favoriteArtist = parsed["favoriteArtist"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
+                    favoriteTag = parsed["favoriteTag"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
+                    favoriteLanguage = parsed["favoriteLanguage"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
+                    favoriteGroup = parsed["favoriteGroup"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
+                    favoriteParody = parsed["favoriteParody"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
+                    favoriteCharacter = parsed["favoriteCharacter"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+                ).toFavorites()
             } else {
                 val galleries = parsed["favorites"]?.jsonArray?.mapNotNull { it.jsonPrimitive.content.toLongOrNull() }?.toSet() ?: emptySet()
                 Favorites(galleries = galleries)
@@ -175,23 +173,19 @@ fun SettingsScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("설정", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-            )
-        },
+    Column(
         modifier = modifier
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 8.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
+            .fillMaxSize()
+            .padding(horizontal = 12.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "설정",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
+        )
             // Section 1: Display & Theme
             SettingsGroupCard(title = "화면 및 테마") {
                 Box {
@@ -389,25 +383,35 @@ fun SettingsScreen(
 
             // Section 3: App Update & Info
             SettingsGroupCard(title = "앱 정보 및 업데이트") {
-                ListItem(
-                    leadingContent = {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Rounded.SystemUpdate,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Rounded.SystemUpdate,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
-                    },
-                    headlineContent = { Text("동공 (Donggong)", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold) },
-                    supportingContent = {
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "동공 (Donggong)",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
                         if (isDownloading) {
                             Column(modifier = Modifier.padding(top = 4.dp)) {
                                 LinearProgressIndicator(
@@ -415,64 +419,77 @@ fun SettingsScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 )
                                 Spacer(modifier = Modifier.height(3.dp))
-                                Text("${(downloadProgress * 100).toInt()}% 다운로드 중...", fontSize = 11.5.sp)
+                                Text(
+                                    text = "${(downloadProgress * 100).toInt()}% 다운로드 중...",
+                                    fontSize = 11.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         } else if (availableRelease != null) {
-                            Text("새 버전 v${availableRelease?.version} 사용 가능 (현재: v$currentVersion)", fontSize = 11.5.sp)
+                            Text(
+                                text = "새 버전 v${availableRelease?.version} 사용 가능 (현재: v$currentVersion)",
+                                fontSize = 11.5.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         } else {
-                            Text("현재 버전 v$currentVersion", fontSize = 11.5.sp)
+                            Text(
+                                text = "현재 버전 v$currentVersion",
+                                fontSize = 11.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                    },
-                    trailingContent = {
-                        if (isCheckingUpdate) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                        } else if (downloadedApk != null) {
-                            Button(
-                                onClick = { AppUpdater.installApk(context, downloadedApk!!) },
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text("설치", fontSize = 12.sp)
-                            }
-                        } else if (availableRelease != null) {
-                            Button(
-                                onClick = {
-                                    scope.launch {
-                                        isDownloading = true
-                                        downloadedApk = AppUpdater.downloadRelease(
-                                            context = context,
-                                            release = availableRelease!!,
-                                            onProgress = { downloadProgress = it }
-                                        )
-                                        isDownloading = false
-                                    }
-                                },
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text("다운로드", fontSize = 12.sp)
-                            }
-                        } else {
-                            FilledTonalButton(
-                                onClick = {
-                                    scope.launch {
-                                        isCheckingUpdate = true
-                                        val rel = AppUpdater.fetchLatestRelease()
-                                        if (rel != null && AppUpdater.isUpdateAvailable(currentVersion, rel.version)) {
-                                            availableRelease = rel
-                                        } else {
-                                            availableRelease = null
-                                            Toast.makeText(context, "최신 버전입니다.", Toast.LENGTH_SHORT).show()
-                                        }
-                                        isCheckingUpdate = false
-                                    }
-                                },
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text("확인", fontSize = 12.sp)
-                            }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    if (isCheckingUpdate) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    } else if (downloadedApk != null) {
+                        Button(
+                            onClick = { AppUpdater.installApk(context, downloadedApk!!) },
+                            shape = CircleShape,
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Text("설치", fontSize = 12.sp)
                         }
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                )
+                    } else if (availableRelease != null) {
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    isDownloading = true
+                                    downloadedApk = AppUpdater.downloadRelease(
+                                        context = context,
+                                        release = availableRelease!!,
+                                        onProgress = { downloadProgress = it }
+                                    )
+                                    isDownloading = false
+                                }
+                            },
+                            shape = CircleShape,
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Text("다운로드", fontSize = 12.sp)
+                        }
+                    } else {
+                        FilledTonalButton(
+                            onClick = {
+                                scope.launch {
+                                    isCheckingUpdate = true
+                                    val rel = AppUpdater.fetchLatestRelease()
+                                    if (rel != null && AppUpdater.isUpdateAvailable(currentVersion, rel.version)) {
+                                        availableRelease = rel
+                                    } else {
+                                        availableRelease = null
+                                        Toast.makeText(context, "최신 버전입니다.", Toast.LENGTH_SHORT).show()
+                                    }
+                                    isCheckingUpdate = false
+                                }
+                            },
+                            shape = CircleShape,
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Text("업데이트 확인", fontSize = 12.sp)
+                        }
+                    }
+                }
             }
 
             // Section 4: Data Management (Favorites Export / Import / Reset)
@@ -581,7 +598,6 @@ fun SettingsScreen(
             )
         }
     }
-}
 
 @Composable
 private fun DropdownOption(
@@ -620,18 +636,18 @@ private fun SettingsGroupCard(
     Column {
         Text(
             text = title,
-            fontSize = 11.5.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 6.dp, bottom = 3.dp)
+            modifier = Modifier.padding(start = 6.dp, bottom = 6.dp)
         )
         Card(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(vertical = 2.dp)) {
+            Column(modifier = Modifier.padding(vertical = 4.dp)) {
                 content()
             }
         }
@@ -652,34 +668,35 @@ private fun SettingsDropdownItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 7.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
             shape = CircleShape,
             color = iconBg,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(34.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = iconTint,
-                    modifier = Modifier.size(15.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
-        Spacer(modifier = Modifier.width(9.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                fontSize = 13.sp,
+                fontSize = 13.5.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = currentValue,
-                fontSize = 11.sp,
+                fontSize = 11.5.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -687,7 +704,7 @@ private fun SettingsDropdownItem(
             Icons.AutoMirrored.Rounded.ArrowForwardIos,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            modifier = Modifier.size(11.dp)
+            modifier = Modifier.size(12.dp)
         )
     }
 }
@@ -706,34 +723,35 @@ private fun SettingsActionItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 7.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Surface(
             shape = CircleShape,
             color = iconBg,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(34.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
                     tint = iconTint,
-                    modifier = Modifier.size(15.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
-        Spacer(modifier = Modifier.width(9.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                fontSize = 13.sp,
+                fontSize = 13.5.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
-                fontSize = 11.sp,
+                fontSize = 11.5.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -741,7 +759,7 @@ private fun SettingsActionItem(
             Icons.AutoMirrored.Rounded.ArrowForwardIos,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            modifier = Modifier.size(11.dp)
+            modifier = Modifier.size(12.dp)
         )
     }
 }

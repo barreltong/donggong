@@ -108,20 +108,20 @@ fun TagChip(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = info.type,
-                modifier = Modifier.size(10.dp),
+                modifier = Modifier.size(13.dp),
                 tint = if (effectiveFav) MaterialTheme.colorScheme.primary else contentColor.copy(alpha = 0.8f)
             )
-            Spacer(modifier = Modifier.width(3.5.dp))
+            Spacer(modifier = Modifier.width(5.dp))
             Text(
                 text = info.displayLabel,
-                fontSize = 10.5.sp,
+                fontSize = 12.sp,
                 fontWeight = if (effectiveFav) FontWeight.SemiBold else FontWeight.Normal,
-                lineHeight = 13.sp,
+                lineHeight = 15.sp,
                 color = if (effectiveFav) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
             )
         }

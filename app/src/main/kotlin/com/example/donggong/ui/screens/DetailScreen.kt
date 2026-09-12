@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -64,7 +65,9 @@ import com.example.donggong.core.DonggongBridge
 import com.example.donggong.data.DbManager
 import com.example.donggong.data.Favorites
 import com.example.donggong.data.Gallery
+import com.example.donggong.data.TagInfo
 import com.example.donggong.ui.components.TagChip
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,6 +104,7 @@ fun DetailScreen(
                         )
                     }
                 },
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
@@ -491,11 +495,12 @@ private fun DetailTagGroup(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 items.forEach { chipItem ->
+                    val parsed = TagInfo.parse(chipItem)
                     TagChip(
                         tag = chipItem,
                         favorites = favorites,
                         onClick = onSearchTag,
-                        onLongClick = { onFavoriteToggle("tag", chipItem, null) }
+                        onLongClick = { onFavoriteToggle(parsed.type, parsed.value, null) }
                     )
                 }
             }
