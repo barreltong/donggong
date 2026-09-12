@@ -10,12 +10,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.LabelOff
+import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material3.AlertDialog
@@ -28,10 +35,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.donggong.core.DonggongBridge
 import com.example.donggong.data.DbManager
@@ -97,7 +107,7 @@ fun FavoritesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("즐겨찾기") },
+                title = { Text("즐겨찾기", fontWeight = FontWeight.Bold) },
                 actions = {
                     IconButton(onClick = { showImportDialog = true }) {
                         Icon(Icons.Rounded.FileUpload, contentDescription = "Import JSON")
@@ -119,7 +129,10 @@ fun FavoritesScreen(
                     }) {
                         Icon(Icons.Rounded.FileDownload, contentDescription = "Export JSON")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             )
         },
         modifier = modifier
@@ -129,27 +142,63 @@ fun FavoritesScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            PrimaryTabRow(selectedTabIndex = selectedTab) {
+            PrimaryTabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("작품 (${favorites.galleries.size})") }
+                    text = { Text("작품 (${favorites.galleries.size})", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("태그 (${favorites.allChips.size})") }
+                    text = { Text("태그 (${favorites.allChips.size})", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) }
                 )
             }
 
             if (selectedTab == 0) {
                 if (isLoading) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
                     }
                 } else if (favoriteGalleries.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("즐겨찾기한 작품이 없습니다.")
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(32.dp)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                modifier = Modifier.size(72.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.BookmarkBorder,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "즐겨찾기한 작품이 없습니다",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "작품 상세 화면에서 하트 아이콘을 눌러 추가해보세요",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -173,7 +222,37 @@ fun FavoritesScreen(
             } else {
                 if (favorites.allChips.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("즐겨찾기한 태그가 없습니다.")
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(32.dp)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                modifier = Modifier.size(72.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Rounded.LabelOff,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "즐겨찾기한 태그가 없습니다",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "태그를 길게 눌러 즐겨찾기에 추가할 수 있습니다",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -205,49 +284,56 @@ fun FavoritesScreen(
     if (showImportDialog) {
         AlertDialog(
             onDismissRequest = { showImportDialog = false },
-            title = { Text("즐겨찾기 가져오기") },
+            title = { Text("즐겨찾기 가져오기", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text("Donggong 또는 Pupil 백업 JSON을 붙여넣으세요:")
+                    Text(
+                        "Donggong 또는 Pupil 백업 JSON을 붙여넣으세요:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     OutlinedTextField(
                         value = importJsonText,
                         onValueChange = { importJsonText = it },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp),
+                            .padding(top = 10.dp),
+                        shape = RoundedCornerShape(12.dp),
                         maxLines = 6
                     )
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    try {
-                        val parsed = json.parseToJsonElement(importJsonText).jsonObject
-                        val newFavs = if (parsed.containsKey("favoriteId")) {
-                            Favorites(
-                                galleries = parsed["favoriteId"]?.jsonArray?.mapNotNull { it.jsonPrimitive.content.toLongOrNull() }?.toSet() ?: emptySet(),
-                                artists = parsed["favoriteArtist"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
-                                tags = parsed["favoriteTag"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
-                                languages = parsed["favoriteLanguage"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
-                                groups = parsed["favoriteGroup"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
-                                parodys = parsed["favoriteParody"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
-                                characters = parsed["favoriteCharacter"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet()
-                            )
-                        } else {
-                            // Pupil format
-                            val galleries = parsed["favorites"]?.jsonArray?.mapNotNull { it.jsonPrimitive.content.toLongOrNull() }?.toSet() ?: emptySet()
-                            Favorites(galleries = galleries)
+                Button(
+                    onClick = {
+                        try {
+                            val parsed = json.parseToJsonElement(importJsonText).jsonObject
+                            val newFavs = if (parsed.containsKey("favoriteId")) {
+                                Favorites(
+                                    galleries = parsed["favoriteId"]?.jsonArray?.mapNotNull { it.jsonPrimitive.content.toLongOrNull() }?.toSet() ?: emptySet(),
+                                    artists = parsed["favoriteArtist"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
+                                    tags = parsed["favoriteTag"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
+                                    languages = parsed["favoriteLanguage"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
+                                    groups = parsed["favoriteGroup"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
+                                    parodys = parsed["favoriteParody"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet(),
+                                    characters = parsed["favoriteCharacter"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet() ?: emptySet()
+                                )
+                            } else {
+                                val galleries = parsed["favorites"]?.jsonArray?.mapNotNull { it.jsonPrimitive.content.toLongOrNull() }?.toSet() ?: emptySet()
+                                Favorites(galleries = galleries)
+                            }
+                            scope.launch {
+                                DbManager.importFavorites(newFavs)
+                                onFavoritesImported(newFavs)
+                                showImportDialog = false
+                                Toast.makeText(context, "즐겨찾기를 가져왔습니다.", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "올바른 JSON 형식이 아닙니다.", Toast.LENGTH_SHORT).show()
                         }
-                        scope.launch {
-                            DbManager.importFavorites(newFavs)
-                            onFavoritesImported(newFavs)
-                            showImportDialog = false
-                            Toast.makeText(context, "즐겨찾기를 가져왔습니다.", Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: Exception) {
-                        Toast.makeText(context, "올바른 JSON 형식이 아닙니다.", Toast.LENGTH_SHORT).show()
-                    }
-                }) {
+                    },
+                    shape = RoundedCornerShape(10.dp)
+                ) {
                     Text("가져오기")
                 }
             },
@@ -255,7 +341,8 @@ fun FavoritesScreen(
                 TextButton(onClick = { showImportDialog = false }) {
                     Text("취소")
                 }
-            }
+            },
+            shape = RoundedCornerShape(20.dp)
         )
     }
 }

@@ -1,14 +1,21 @@
 package com.example.donggong.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -16,10 +23,13 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -81,8 +92,8 @@ fun HomeScreen(
 
     val showFab by remember {
         derivedStateOf {
-            if (cardViewMode == "grid") gridState.firstVisibleItemIndex > 5
-            else listState.firstVisibleItemIndex > 5
+            if (cardViewMode == "grid") gridState.firstVisibleItemIndex > 4
+            else listState.firstVisibleItemIndex > 4
         }
     }
 
@@ -158,7 +169,11 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, bottom = 2.dp)
+            ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -180,28 +195,44 @@ fun HomeScreen(
                             }
                         )
                     }
-                    IconButton(onClick = {
-                        val nextMode = when (cardViewMode) {
-                            "detailed" -> "compact"
-                            "compact" -> "grid"
-                            else -> "detailed"
-                        }
-                        onCardViewModeChange(nextMode)
-                    }) {
-                        Icon(
-                            imageVector = when (cardViewMode) {
-                                "grid" -> Icons.Rounded.GridView
-                                "compact" -> Icons.AutoMirrored.Rounded.List
-                                else -> Icons.Rounded.ViewAgenda
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .size(44.dp)
+                    ) {
+                        IconButton(
+                            onClick = {
+                                val nextMode = when (cardViewMode) {
+                                    "detailed" -> "compact"
+                                    "compact" -> "grid"
+                                    else -> "detailed"
+                                }
+                                onCardViewModeChange(nextMode)
                             },
-                            contentDescription = "View Mode"
-                        )
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(
+                                imageVector = when (cardViewMode) {
+                                    "grid" -> Icons.Rounded.GridView
+                                    "compact" -> Icons.AutoMirrored.Rounded.List
+                                    else -> Icons.Rounded.ViewAgenda
+                                },
+                                contentDescription = "View Mode",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
         },
         floatingActionButton = {
-            AnimatedVisibility(visible = showFab) {
+            AnimatedVisibility(
+                visible = showFab,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut()
+            ) {
                 FloatingActionButton(
                     onClick = {
                         scope.launch {
@@ -210,7 +241,8 @@ fun HomeScreen(
                         }
                     },
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = "Scroll to top")
                 }
@@ -221,9 +253,9 @@ fun HomeScreen(
                 PaginationBar(
                     currentPage = currentPage,
                     totalCount = totalCount,
-                    onPageSelected = { targetPage ->
+                    onPageSelected = { p ->
                         scope.launch {
-                            loadData(targetPage, refresh = true)
+                            loadData(p, refresh = true)
                             if (cardViewMode == "grid") gridState.scrollToItem(0)
                             else listState.scrollToItem(0)
                         }
@@ -237,40 +269,87 @@ fun HomeScreen(
             isRefreshing = isRefreshing,
             onRefresh = {
                 isRefreshing = true
-                scope.launch { loadData(1, refresh = true) }
+                scope.launch {
+                    loadData(1, refresh = true)
+                }
             },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            if (galleries.isEmpty() && isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+            when {
+                isLoading && galleries.isEmpty() -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "작품 목록 불러오는 중...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
-            } else if (galleries.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = if (activeQuery.isNotEmpty()) "검색 결과가 없습니다" else "작품이 없습니다",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                !isLoading && galleries.isEmpty() -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(32.dp)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                modifier = Modifier.size(72.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.SearchOff,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "검색 결과가 없습니다",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "다른 검색어나 언어로 다시 시도해보세요",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
-            } else {
-                if (cardViewMode == "grid") {
+                cardViewMode == "grid" -> {
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
+                        columns = GridCells.Adaptive(minSize = 150.dp),
                         state = gridState,
-                        contentPadding = PaddingValues(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(galleries, key = { it.id }) { gallery ->
+                        items(galleries, key = { it.id }) { g ->
                             GalleryCard(
-                                gallery = gallery,
-                                isFavorite = favorites.isFavorite("gallery", gallery.id.toString()),
-                                onFavoriteToggle = { onFavoriteToggle("gallery", gallery.id.toString(), gallery) },
-                                onClick = { onGalleryClick(gallery.id) },
+                                gallery = g,
+                                isFavorite = favorites.isFavorite("gallery", g.id.toString()),
+                                onFavoriteToggle = { onFavoriteToggle("gallery", g.id.toString(), g) },
+                                onClick = { onGalleryClick(g.id) },
                                 onTagClick = { tag ->
                                     query = tag
                                     submitSearch(tag)
@@ -278,7 +357,7 @@ fun HomeScreen(
                                 viewMode = "grid"
                             )
                         }
-                        if (isLoading && listingMode != "pagination") {
+                        if (isLoading && galleries.isNotEmpty()) {
                             item {
                                 Box(
                                     modifier = Modifier
@@ -286,24 +365,25 @@ fun HomeScreen(
                                         .padding(16.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    CircularProgressIndicator()
+                                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
                                 }
                             }
                         }
                     }
-                } else {
+                }
+                else -> {
                     LazyColumn(
                         state = listState,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(galleries, key = { it.id }) { gallery ->
+                        items(galleries, key = { it.id }) { g ->
                             GalleryCard(
-                                gallery = gallery,
-                                isFavorite = favorites.isFavorite("gallery", gallery.id.toString()),
-                                onFavoriteToggle = { onFavoriteToggle("gallery", gallery.id.toString(), gallery) },
-                                onClick = { onGalleryClick(gallery.id) },
+                                gallery = g,
+                                isFavorite = favorites.isFavorite("gallery", g.id.toString()),
+                                onFavoriteToggle = { onFavoriteToggle("gallery", g.id.toString(), g) },
+                                onClick = { onGalleryClick(g.id) },
                                 onTagClick = { tag ->
                                     query = tag
                                     submitSearch(tag)
@@ -311,7 +391,7 @@ fun HomeScreen(
                                 viewMode = cardViewMode
                             )
                         }
-                        if (isLoading && listingMode != "pagination") {
+                        if (isLoading && galleries.isNotEmpty()) {
                             item {
                                 Box(
                                     modifier = Modifier
@@ -319,7 +399,7 @@ fun HomeScreen(
                                         .padding(16.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    CircularProgressIndicator()
+                                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
                                 }
                             }
                         }

@@ -56,6 +56,16 @@ func TestGetListIntegration(t *testing.T) {
 	if len(result.Galleries) == 0 {
 		t.Fatalf("expected non-empty galleries list")
 	}
+	firstThumb := result.Galleries[0].Thumbnail
+	t.Logf("First gallery thumbnail URL: %s", firstThumb)
+	if firstThumb == "" {
+		t.Fatalf("expected thumbnail URL")
+	}
+	thumbBytes, err := FetchBytes(firstThumb)
+	if err != nil {
+		t.Fatalf("FetchBytes for thumbnail failed: %v", err)
+	}
+	t.Logf("Fetched thumbnail bytes: %d", len(thumbBytes))
 }
 
 func TestSearchIntegration(t *testing.T) {

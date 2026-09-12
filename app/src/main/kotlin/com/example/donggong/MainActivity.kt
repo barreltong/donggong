@@ -7,15 +7,23 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -91,7 +99,18 @@ fun DonggongMainApp() {
         Scaffold(
             bottomBar = {
                 if (showBottomBar) {
-                    NavigationBar {
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        tonalElevation = 3.dp
+                    ) {
+                        val navItemColors = NavigationBarItemDefaults.colors(
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
                         NavigationBarItem(
                             selected = currentRoute == "home",
                             onClick = {
@@ -103,8 +122,14 @@ fun DonggongMainApp() {
                                     restoreState = true
                                 }
                             },
-                            icon = { Icon(Icons.Rounded.Home, contentDescription = "홈") },
-                            label = { Text("홈") }
+                            icon = {
+                                Icon(
+                                    imageVector = if (currentRoute == "home") Icons.Rounded.Home else Icons.Outlined.Home,
+                                    contentDescription = "홈"
+                                )
+                            },
+                            label = { Text("홈", fontWeight = if (currentRoute == "home") FontWeight.Bold else FontWeight.Normal) },
+                            colors = navItemColors
                         )
                         NavigationBarItem(
                             selected = currentRoute == "favorites",
@@ -117,8 +142,14 @@ fun DonggongMainApp() {
                                     restoreState = true
                                 }
                             },
-                            icon = { Icon(Icons.Rounded.Favorite, contentDescription = "즐겨찾기") },
-                            label = { Text("즐겨찾기") }
+                            icon = {
+                                Icon(
+                                    imageVector = if (currentRoute == "favorites") Icons.Rounded.Favorite else Icons.Outlined.FavoriteBorder,
+                                    contentDescription = "즐겨찾기"
+                                )
+                            },
+                            label = { Text("즐겨찾기", fontWeight = if (currentRoute == "favorites") FontWeight.Bold else FontWeight.Normal) },
+                            colors = navItemColors
                         )
                         NavigationBarItem(
                             selected = currentRoute == "history",
@@ -131,8 +162,14 @@ fun DonggongMainApp() {
                                     restoreState = true
                                 }
                             },
-                            icon = { Icon(Icons.Rounded.History, contentDescription = "기록") },
-                            label = { Text("기록") }
+                            icon = {
+                                Icon(
+                                    imageVector = if (currentRoute == "history") Icons.Rounded.History else Icons.Outlined.History,
+                                    contentDescription = "기록"
+                                )
+                            },
+                            label = { Text("기록", fontWeight = if (currentRoute == "history") FontWeight.Bold else FontWeight.Normal) },
+                            colors = navItemColors
                         )
                         NavigationBarItem(
                             selected = currentRoute == "settings",
@@ -145,8 +182,14 @@ fun DonggongMainApp() {
                                     restoreState = true
                                 }
                             },
-                            icon = { Icon(Icons.Rounded.Settings, contentDescription = "설정") },
-                            label = { Text("설정") }
+                            icon = {
+                                Icon(
+                                    imageVector = if (currentRoute == "settings") Icons.Rounded.Settings else Icons.Outlined.Settings,
+                                    contentDescription = "설정"
+                                )
+                            },
+                            label = { Text("설정", fontWeight = if (currentRoute == "settings") FontWeight.Bold else FontWeight.Normal) },
+                            colors = navItemColors
                         )
                     }
                 }

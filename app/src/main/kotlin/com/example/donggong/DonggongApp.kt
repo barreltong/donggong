@@ -17,7 +17,8 @@ class DonggongApp : Application(), ImageLoaderFactory {
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .components {
-                add(HitomiImageFetcher.Factory())
+                add(HitomiImageFetcher.UriFactory())
+                add(HitomiImageFetcher.StringFactory())
             }
             .memoryCache {
                 MemoryCache.Builder(this)
