@@ -61,6 +61,7 @@ fun DonggongSearchBar(
     favorites: Favorites,
     recentSearches: List<String>,
     onRemoveRecentSearch: (String) -> Unit,
+    trailingAction: @Composable (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -83,63 +84,74 @@ fun DonggongSearchBar(
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            textStyle = TextStyle(fontSize = 13.5.sp),
-            placeholder = {
-                Text(
-                    "태그, 작가, 작품 검색...",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Rounded.Search,
-                    contentDescription = "Search",
-                    tint = if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp)
-                )
-            },
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(
-                        onClick = {
-                            onQueryChange("")
-                            suggestions = emptyList()
-                        },
-                        modifier = Modifier.size(24.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Clear,
-                            contentDescription = "Clear",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            },
-            singleLine = true,
-            shape = CircleShape,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-            ),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(
-                onSearch = {
-                    focusManager.clearFocus()
-                    onSearch(query)
-                }
-            ),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 3.dp)
-                .onFocusChanged { isFocused = it.isFocused }
-        )
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                textStyle = TextStyle(fontSize = 13.5.sp),
+                placeholder = {
+                    Text(
+                        "태그, 작가, 작품 검색...",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Rounded.Search,
+                        contentDescription = "Search",
+                        tint = if (isFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                onQueryChange("")
+                                suggestions = emptyList()
+                            },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Clear,
+                                contentDescription = "Clear",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = CircleShape,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                ),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = {
+                        focusManager.clearFocus()
+                        onSearch(query)
+                    }
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .onFocusChanged { isFocused = it.isFocused }
+            )
+
+            if (trailingAction != null) {
+                Spacer(modifier = Modifier.width(6.dp))
+                trailingAction()
+            }
+        }
 
         // Favorite tags quick filter row
         if (!isFocused && favorites.allChips.isNotEmpty()) {

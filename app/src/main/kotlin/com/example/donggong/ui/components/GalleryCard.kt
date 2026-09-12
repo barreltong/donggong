@@ -63,15 +63,15 @@ fun GalleryCard(
     )
 
     Card(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
-        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
+        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
     ) {
         if (viewMode == "grid") {
@@ -108,7 +108,7 @@ fun GalleryCard(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(4.dp)
-                            .size(28.dp)
+                            .size(26.dp)
                     ) {
                         IconButton(
                             onClick = onFavoriteToggle,
@@ -118,7 +118,7 @@ fun GalleryCard(
                                 imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                 contentDescription = "Favorite",
                                 tint = heartColor,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
                         }
                     }
@@ -177,8 +177,8 @@ fun GalleryCard(
             Row(modifier = Modifier.padding(7.dp)) {
                 Box(
                     modifier = Modifier
-                        .width(if (viewMode == "compact") 68.dp else 84.dp)
-                        .height(if (viewMode == "compact") 94.dp else 116.dp)
+                        .width(if (viewMode == "compact") 68.dp else 82.dp)
+                        .height(if (viewMode == "compact") 94.dp else 114.dp)
                         .clip(RoundedCornerShape(8.dp))
                 ) {
                     AsyncImage(
@@ -210,7 +210,7 @@ fun GalleryCard(
                     modifier = Modifier
                         .weight(1f)
                         .padding(start = 9.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -229,13 +229,13 @@ fun GalleryCard(
                         )
                         IconButton(
                             onClick = onFavoriteToggle,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(26.dp)
                         ) {
                             Icon(
                                 imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                 contentDescription = "Favorite",
                                 tint = heartColor,
-                                modifier = Modifier.size(17.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }

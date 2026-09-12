@@ -101,7 +101,7 @@ fun DonggongMainApp() {
                 if (showBottomBar) {
                     NavigationBar(
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        tonalElevation = 3.dp
+                        tonalElevation = 0.dp
                     ) {
                         val navItemColors = NavigationBarItemDefaults.colors(
                             indicatorColor = MaterialTheme.colorScheme.primaryContainer,

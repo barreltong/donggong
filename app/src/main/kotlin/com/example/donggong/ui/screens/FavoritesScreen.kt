@@ -238,7 +238,7 @@ fun FavoritesScreen(
                         state = listState,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 6.dp, vertical = 4.dp),
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         items(favoriteGalleries, key = { it.id }) { gallery ->

@@ -169,38 +169,23 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp, bottom = 2.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp)
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        DonggongSearchBar(
-                            query = query,
-                            onQueryChange = { query = it },
-                            onSearch = { submitSearch(it) },
-                            favorites = favorites,
-                            recentSearches = recentSearches,
-                            onRemoveRecentSearch = { rem ->
-                                scope.launch {
-                                    DbManager.removeRecentSearch(rem)
-                                    recentSearches = DbManager.getRecentSearches()
-                                }
-                            }
-                        )
+            DonggongSearchBar(
+                query = query,
+                onQueryChange = { query = it },
+                onSearch = { submitSearch(it) },
+                favorites = favorites,
+                recentSearches = recentSearches,
+                onRemoveRecentSearch = { rem ->
+                    scope.launch {
+                        DbManager.removeRecentSearch(rem)
+                        recentSearches = DbManager.getRecentSearches()
                     }
+                },
+                trailingAction = {
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.surfaceContainer,
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .size(36.dp)
+                        modifier = Modifier.size(44.dp)
                     ) {
                         IconButton(
                             onClick = {
@@ -221,12 +206,12 @@ fun HomeScreen(
                                 },
                                 contentDescription = "View Mode",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(19.dp)
                             )
                         }
                     }
                 }
-            }
+            )
         },
         floatingActionButton = {
             AnimatedVisibility(

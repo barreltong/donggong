@@ -19,7 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Material Design 3 Expressive Dark Color Scheme
+// Material Design 3 Expressive Dark Color Scheme (Soft Black)
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFFD0BCFF),
     onPrimary = Color(0xFF381E72),
@@ -33,23 +33,23 @@ private val DarkColorScheme = darkColorScheme(
     onTertiary = Color(0xFF492532),
     tertiaryContainer = Color(0xFF633B48),
     onTertiaryContainer = Color(0xFFFFD8E4),
-    error = Color(0xFFF2B8B5),
-    onError = Color(0xFF601410),
-    errorContainer = Color(0xFF8C1D18),
-    onErrorContainer = Color(0xFFF9DEDC),
-    background = Color(0xFF141218),
-    onBackground = Color(0xFFE6E0E9),
-    surface = Color(0xFF141218),
-    onSurface = Color(0xFFE6E0E9),
-    surfaceVariant = Color(0xFF49454F),
-    onSurfaceVariant = Color(0xFFCAC4D0),
-    outline = Color(0xFF938F99),
-    outlineVariant = Color(0xFF49454F),
-    surfaceContainerLowest = Color(0xFF0F0D13),
-    surfaceContainerLow = Color(0xFF1D1B20),
-    surfaceContainer = Color(0xFF211F26),
-    surfaceContainerHigh = Color(0xFF2B2930),
-    surfaceContainerHighest = Color(0xFF36343B)
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    background = Color(0xFF111113),
+    onBackground = Color(0xFFE5E2E6),
+    surface = Color(0xFF131316),
+    onSurface = Color(0xFFE5E2E6),
+    surfaceVariant = Color(0xFF222227),
+    onSurfaceVariant = Color(0xFFC8C5CE),
+    outline = Color(0xFF8E8A95),
+    outlineVariant = Color(0xFF45444D),
+    surfaceContainerLowest = Color(0xFF0C0C0E),
+    surfaceContainerLow = Color(0xFF17171A),
+    surfaceContainer = Color(0xFF1C1B20),
+    surfaceContainerHigh = Color(0xFF242329),
+    surfaceContainerHighest = Color(0xFF2E2D34)
 )
 
 // Material Design 3 Expressive Light Color Scheme
@@ -66,23 +66,23 @@ private val LightColorScheme = lightColorScheme(
     onTertiary = Color(0xFFFFFFFF),
     tertiaryContainer = Color(0xFFFFD8E4),
     onTertiaryContainer = Color(0xFF31111D),
-    error = Color(0xFFB3261E),
+    error = Color(0xFFBA1A1A),
     onError = Color(0xFFFFFFFF),
-    errorContainer = Color(0xFFF9DEDC),
-    onErrorContainer = Color(0xFF410E0B),
-    background = Color(0xFFFEF7FF),
-    onBackground = Color(0xFF1D1B20),
-    surface = Color(0xFFFEF7FF),
-    onSurface = Color(0xFF1D1B20),
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
+    background = Color(0xFFFDF8FD),
+    onBackground = Color(0xFF1C1B1F),
+    surface = Color(0xFFFDF8FD),
+    onSurface = Color(0xFF1C1B1F),
     surfaceVariant = Color(0xFFE7E0EC),
-    onSurfaceVariant = Color(0xFF49454F),
-    outline = Color(0xFF79747E),
-    outlineVariant = Color(0xFFCAC4D0),
+    onSurfaceVariant = Color(0xFF49454E),
+    outline = Color(0xFF7A757F),
+    outlineVariant = Color(0xFFCAC4CF),
     surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFF7F2FA),
-    surfaceContainer = Color(0xFFF3EDF7),
-    surfaceContainerHigh = Color(0xFFECE6F0),
-    surfaceContainerHighest = Color(0xFFE6E0E9)
+    surfaceContainerLow = Color(0xFFF7F2F7),
+    surfaceContainer = Color(0xFFF2ECF2),
+    surfaceContainerHigh = Color(0xFFECE6EC),
+    surfaceContainerHighest = Color(0xFFE6E1E6)
 )
 
 val DonggongTypography = Typography(
@@ -175,15 +175,15 @@ val DonggongTypography = Typography(
 val DonggongShapes = Shapes(
     extraSmall = RoundedCornerShape(4.dp),
     small = RoundedCornerShape(8.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(24.dp),
-    extraLarge = RoundedCornerShape(32.dp)
+    medium = RoundedCornerShape(14.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(28.dp)
 )
 
 @Composable
 fun DonggongTheme(
     themeMode: String = "dark",
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val darkTheme = when (themeMode) {
