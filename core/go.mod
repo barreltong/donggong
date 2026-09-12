@@ -1,6 +1,6 @@
 module github.com/barreltong/donggong/core
 
-go 1.27.1
+go 1.26.0
 
 tool golang.org/x/mobile/cmd/gobind
 

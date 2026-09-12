@@ -9,27 +9,20 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 )
 
 type fragmentingConn struct {
 	net.Conn
-	fragmentedCount int
-	mu              sync.Mutex
 }
 
 func (c *fragmentingConn) Write(b []byte) (int, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if len(b) > 1 && c.fragmentedCount < 10 {
-		c.fragmentedCount++
+	if len(b) > 1 {
 		n1, err := c.Conn.Write(b[:1])
 		if err != nil {
 			return n1, err
 		}
-		time.Sleep(25 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		n2, err := c.Conn.Write(b[1:])
 		return n1 + n2, err
 	}
@@ -56,10 +49,6 @@ func newDPIEngine() *dpiEngine {
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 		},
-		DisableKeepAlives:   false,
-		MaxIdleConns:        100,
-		MaxIdleConnsPerHost: 20,
-		IdleConnTimeout:     90 * time.Second,
 	}
 
 	return &dpiEngine{
@@ -76,22 +65,17 @@ var defaultHeaders = map[string]string{
 }
 
 func (d *dpiEngine) Fetch(rawURL string, customHeaders map[string]string) ([]byte, int, http.Header, error) {
+	parsedRaw, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, 0, nil, fmt.Errorf("invalid url: %w", err)
+	}
+
 	dotURL := rawURL
 	if strings.Contains(rawURL, "hitomi.la/") {
 		dotURL = strings.Replace(rawURL, "hitomi.la/", "hitomi.la./", 1)
 	}
 
-	parsed, err := url.Parse(dotURL)
-	if err != nil {
-		return nil, 0, nil, fmt.Errorf("invalid url: %w", err)
-	}
-
-	hostname := parsed.Hostname()
-	modifiedHostname := hostname
-	if len(hostname) > 0 {
-		lastChar := strings.ToUpper(string(hostname[len(hostname)-1]))
-		modifiedHostname = hostname[:len(hostname)-1] + lastChar
-	}
+	hostname := parsedRaw.Hostname()
 
 	var lastErr error
 	for attempt := 1; attempt <= 3; attempt++ {
@@ -100,18 +84,13 @@ func (d *dpiEngine) Fetch(rawURL string, customHeaders map[string]string) ([]byt
 			return nil, 0, nil, err
 		}
 
-		padding := strings.Repeat("x", 500)
-		for i := 0; i < 21; i++ {
-			req.Header.Set(fmt.Sprintf("X-Padding-%d", i), padding)
-		}
-
 		for k, v := range defaultHeaders {
 			req.Header.Set(k, v)
 		}
 		for k, v := range customHeaders {
 			req.Header.Set(k, v)
 		}
-		req.Host = modifiedHostname
+		req.Host = hostname
 
 		resp, err := d.client.Do(req)
 		if err != nil {
