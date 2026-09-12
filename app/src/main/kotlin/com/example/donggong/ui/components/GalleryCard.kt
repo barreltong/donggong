@@ -1,9 +1,11 @@
 package com.example.donggong.ui.components
 
+import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.rounded.Brush
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -40,13 +43,52 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.donggong.data.Favorites
 import com.example.donggong.data.Gallery
+
+@Composable
+fun GalleryIdBadge(
+    galleryId: Long,
+    modifier: Modifier = Modifier
+) {
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        modifier = modifier.clickable {
+            clipboardManager.setText(AnnotatedString(galleryId.toString()))
+            Toast.makeText(context, "작품 ID가 복사되었습니다 ($galleryId)", Toast.LENGTH_SHORT).show()
+        }
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.ContentCopy,
+                contentDescription = "Copy ID",
+                modifier = Modifier.size(9.5.dp)
+            )
+            Spacer(modifier = Modifier.width(3.dp))
+            Text(
+                text = "#$galleryId",
+                fontSize = 9.5.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -66,9 +108,11 @@ fun GalleryCard(
         targetValue = if (isFavorite) Color(0xFFE53935) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
         label = "heartColor"
     )
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
 
     Card(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
@@ -76,7 +120,7 @@ fun GalleryCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
@@ -89,8 +133,8 @@ fun GalleryCard(
                         .fillMaxWidth()
                         .aspectRatio(0.72f)
                 ) {
-                    AsyncImage(
-                        model = gallery.thumbnail,
+                    HitomiImage(
+                        url = gallery.thumbnail,
                         contentDescription = gallery.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -100,7 +144,7 @@ fun GalleryCard(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(36.dp)
+                            .height(42.dp)
                             .align(Alignment.BottomCenter)
                             .background(
                                 Brush.verticalGradient(
@@ -109,14 +153,47 @@ fun GalleryCard(
                             )
                     )
 
+                    // Floating ID copy pill
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.65f),
+                        contentColor = Color.White,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(5.dp)
+                            .clickable {
+                                clipboardManager.setText(AnnotatedString(gallery.id.toString()))
+                                Toast.makeText(context, "작품 ID가 복사되었습니다 (${gallery.id})", Toast.LENGTH_SHORT).show()
+                            }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.ContentCopy,
+                                contentDescription = "Copy ID",
+                                modifier = Modifier.size(9.dp),
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(2.5.dp))
+                            Text(
+                                text = "#${gallery.id}",
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.White
+                            )
+                        }
+                    }
+
                     // Floating heart button
                     Surface(
                         shape = CircleShape,
                         color = Color.Black.copy(alpha = 0.5f),
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(4.dp)
-                            .size(24.dp)
+                            .padding(5.dp)
+                            .size(26.dp)
                     ) {
                         IconButton(
                             onClick = onFavoriteToggle,
@@ -126,7 +203,7 @@ fun GalleryCard(
                                 imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                 contentDescription = "Favorite",
                                 tint = heartColor,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(15.dp)
                             )
                         }
                     }
@@ -138,14 +215,14 @@ fun GalleryCard(
                             color = Color.Black.copy(alpha = 0.65f),
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
-                                .padding(4.dp)
+                                .padding(5.dp)
                         ) {
                             Text(
                                 text = "${gallery.pageCount}p",
                                 color = Color.White,
-                                fontSize = 9.sp,
+                                fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp)
                             )
                         }
                     }
@@ -158,13 +235,13 @@ fun GalleryCard(
                             contentColor = Color.White,
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
-                                .padding(4.dp)
+                                .padding(5.dp)
                         ) {
                             Text(
                                 text = lang,
-                                fontSize = 9.sp,
+                                fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp)
                             )
                         }
                     }
@@ -173,24 +250,28 @@ fun GalleryCard(
                 Text(
                     text = gallery.title,
                     style = MaterialTheme.typography.bodySmall,
-                    fontSize = 11.5.sp,
-                    lineHeight = 14.sp,
+                    fontSize = 12.sp,
+                    lineHeight = 15.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 4.dp)
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)
                 )
             }
         } else {
-            Row(modifier = Modifier.padding(5.dp)) {
+            val isCompact = (viewMode == "compact")
+            Row(
+                modifier = Modifier.padding(if (isCompact) 7.dp else 8.dp),
+                verticalAlignment = Alignment.Top
+            ) {
                 Box(
                     modifier = Modifier
-                        .width(if (viewMode == "compact") 66.dp else 78.dp)
-                        .height(if (viewMode == "compact") 92.dp else 108.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .width(if (isCompact) 80.dp else 96.dp)
+                        .height(if (isCompact) 114.dp else 136.dp)
+                        .clip(RoundedCornerShape(if (isCompact) 10.dp else 12.dp))
                 ) {
-                    AsyncImage(
-                        model = gallery.thumbnail,
+                    HitomiImage(
+                        url = gallery.thumbnail,
                         contentDescription = gallery.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -201,14 +282,14 @@ fun GalleryCard(
                             color = Color.Black.copy(alpha = 0.7f),
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
-                                .padding(2.5.dp)
+                                .padding(3.dp)
                         ) {
                             Text(
                                 text = "${gallery.pageCount}p",
                                 color = Color.White,
                                 fontSize = 8.5.sp,
                                 fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 0.5.dp)
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
                             )
                         }
                     }
@@ -217,8 +298,8 @@ fun GalleryCard(
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(start = 7.dp),
-                    verticalArrangement = Arrangement.spacedBy(1.5.dp)
+                        .padding(start = 9.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -228,8 +309,8 @@ fun GalleryCard(
                         Text(
                             text = gallery.title,
                             style = MaterialTheme.typography.titleSmall,
-                            fontSize = 12.5.sp,
-                            lineHeight = 15.5.sp,
+                            fontSize = if (isCompact) 13.sp else 13.5.sp,
+                            lineHeight = if (isCompact) 16.5.sp else 17.5.sp,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -243,7 +324,7 @@ fun GalleryCard(
                                 imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                 contentDescription = "Favorite",
                                 tint = heartColor,
-                                modifier = Modifier.size(15.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
@@ -251,18 +332,18 @@ fun GalleryCard(
                     if (gallery.artists.isNotEmpty()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 0.5.dp)
+                            modifier = Modifier.padding(top = 1.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Brush,
                                 contentDescription = "Artist",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                modifier = Modifier.size(10.5.dp)
+                                modifier = Modifier.size(11.5.dp)
                             )
-                            Spacer(modifier = Modifier.width(3.dp))
+                            Spacer(modifier = Modifier.width(3.5.dp))
                             Text(
                                 text = gallery.artists.joinToString(", "),
-                                fontSize = 11.sp,
+                                fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Normal,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -276,6 +357,8 @@ fun GalleryCard(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(vertical = 1.dp)
                     ) {
+                        GalleryIdBadge(galleryId = gallery.id)
+
                         if (gallery.type.isNotEmpty()) {
                             Surface(
                                 shape = CircleShape,
@@ -287,10 +370,11 @@ fun GalleryCard(
                                     text = gallery.type,
                                     fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp)
                                 )
                             }
                         }
+
                         gallery.language?.let { lang ->
                             Surface(
                                 shape = CircleShape,
@@ -302,18 +386,18 @@ fun GalleryCard(
                                     text = lang,
                                     fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp)
                                 )
                             }
                         }
                     }
 
-                    if (viewMode == "detailed" && gallery.tags.isNotEmpty()) {
+                    if (!isCompact && gallery.tags.isNotEmpty()) {
                         FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(3.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(3.5.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.5.dp),
                             maxItemsInEachRow = 4,
-                            modifier = Modifier.padding(top = 1.dp)
+                            modifier = Modifier.padding(top = 2.dp)
                         ) {
                             gallery.tags.take(6).forEach { tag ->
                                 TagChip(

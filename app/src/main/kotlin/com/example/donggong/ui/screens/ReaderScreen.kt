@@ -61,9 +61,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.donggong.core.DonggongBridge
+import com.example.donggong.data.DbManager
 import com.example.donggong.data.Gallery
+import com.example.donggong.ui.components.HitomiImage
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,6 +91,10 @@ fun ReaderScreen(
         isLoading = true
         val loaded = DonggongBridge.getReaderData(galleryId)
         gallery = loaded
+        if (!loaded.isError && loaded.id != 0L) {
+            DbManager.addRecentViewed(loaded.id)
+            DbManager.cacheGallery(loaded)
+        }
         isLoading = false
     }
 
@@ -154,8 +159,9 @@ fun ReaderScreen(
                                 val ratio = if (img.width > 0 && img.height > 0) {
                                     img.width.toFloat() / img.height.toFloat()
                                 } else 0.70f
-                                AsyncImage(
-                                    model = img.url,
+                                HitomiImage(
+                                    url = img.url,
+                                    imageHash = img.hash,
                                     contentDescription = "Page ${index + 1}",
                                     contentScale = ContentScale.FillWidth,
                                     modifier = Modifier
@@ -180,8 +186,9 @@ fun ReaderScreen(
                             modifier = Modifier.fillMaxSize()
                         ) { page ->
                             val img = images[page]
-                            AsyncImage(
-                                model = img.url,
+                            HitomiImage(
+                                url = img.url,
+                                imageHash = img.hash,
                                 contentDescription = "Page ${page + 1}",
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier.fillMaxSize()
@@ -203,8 +210,9 @@ fun ReaderScreen(
                             modifier = Modifier.fillMaxSize()
                         ) { page ->
                             val img = images[page]
-                            AsyncImage(
-                                model = img.url,
+                            HitomiImage(
+                                url = img.url,
+                                imageHash = img.hash,
                                 contentDescription = "Page ${page + 1}",
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier.fillMaxSize()
@@ -253,8 +261,9 @@ fun ReaderScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     leftImg?.let {
-                                        AsyncImage(
-                                            model = it.url,
+                                        HitomiImage(
+                                            url = it.url,
+                                            imageHash = it.hash,
                                             contentDescription = null,
                                             contentScale = ContentScale.Fit,
                                             modifier = Modifier.fillMaxSize()
@@ -268,8 +277,9 @@ fun ReaderScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     rightImg?.let {
-                                        AsyncImage(
-                                            model = it.url,
+                                        HitomiImage(
+                                            url = it.url,
+                                            imageHash = it.hash,
                                             contentDescription = null,
                                             contentScale = ContentScale.Fit,
                                             modifier = Modifier.fillMaxSize()

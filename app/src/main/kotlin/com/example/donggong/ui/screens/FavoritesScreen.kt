@@ -247,15 +247,21 @@ fun FavoritesScreen(
                         state = listState,
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(favoriteGalleries, key = { it.id }) { gallery ->
                             GalleryCard(
                                 gallery = gallery,
                                 isFavorite = true,
                                 onFavoriteToggle = { onFavoriteToggle("gallery", gallery.id.toString(), gallery) },
-                                onClick = { onStartReader(gallery.id, 0) },
+                                onClick = {
+                                    scope.launch {
+                                        DbManager.addRecentViewed(gallery.id)
+                                        DbManager.cacheGallery(gallery)
+                                    }
+                                    onStartReader(gallery.id, 0)
+                                },
                                 onLongClick = { selectedDetailId = gallery.id },
                                 favorites = favorites,
                                 onTagClick = onSearchTag,

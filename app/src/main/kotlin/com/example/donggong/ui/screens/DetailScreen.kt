@@ -51,6 +51,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,12 +61,19 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import android.widget.Toast
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import com.example.donggong.core.DonggongBridge
 import com.example.donggong.data.DbManager
 import com.example.donggong.data.Favorites
 import com.example.donggong.data.Gallery
 import com.example.donggong.data.TagInfo
+import com.example.donggong.ui.components.GalleryIdBadge
+import com.example.donggong.ui.components.HitomiImage
 import com.example.donggong.ui.components.TagChip
 import kotlinx.coroutines.launch
 
@@ -133,6 +141,7 @@ fun DetailSheetContent(
 ) {
     var gallery by remember { mutableStateOf<Gallery?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(galleryId) {
         isLoading = true
@@ -178,6 +187,9 @@ fun DetailSheetContent(
         }
     } else {
         val g = gallery!!
+        val clipboardManager = LocalClipboardManager.current
+        val context = LocalContext.current
+
         LazyColumn(
             modifier = modifier
                 .fillMaxWidth()
@@ -193,27 +205,29 @@ fun DetailSheetContent(
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
                 ) {
-                    Row(modifier = Modifier.padding(6.dp)) {
-                        AsyncImage(
-                            model = g.thumbnail,
+                    Row(modifier = Modifier.padding(8.dp)) {
+                        HitomiImage(
+                            url = g.thumbnail,
                             contentDescription = g.title,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
-                                .width(84.dp)
-                                .height(118.dp)
-                                .clip(RoundedCornerShape(10.dp))
+                                .width(96.dp)
+                                .height(136.dp)
+                                .clip(RoundedCornerShape(12.dp))
                         )
 
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .padding(start = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(3.dp)
+                                .padding(start = 10.dp),
+                            verticalArrangement = Arrangement.spacedBy(3.5.dp)
                         ) {
                             Text(
                                 text = g.title,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
+                                fontSize = 13.5.sp,
+                                lineHeight = 17.5.sp,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 3
                             )
@@ -229,6 +243,7 @@ fun DetailSheetContent(
                                     Text(
                                         text = g.artists.joinToString(", "),
                                         style = MaterialTheme.typography.bodySmall,
+                                        fontSize = 11.5.sp,
                                         fontWeight = FontWeight.Normal,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -236,8 +251,11 @@ fun DetailSheetContent(
                             }
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(top = 1.dp)
                             ) {
+                                GalleryIdBadge(galleryId = g.id)
+
                                 if (g.type.isNotEmpty()) {
                                     Surface(
                                         shape = CircleShape,
@@ -249,7 +267,7 @@ fun DetailSheetContent(
                                             text = g.type,
                                             fontSize = 9.5.sp,
                                             fontWeight = FontWeight.Medium,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp)
                                         )
                                     }
                                 }
@@ -264,7 +282,7 @@ fun DetailSheetContent(
                                             text = lang,
                                             fontSize = 9.5.sp,
                                             fontWeight = FontWeight.Medium,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp)
                                         )
                                     }
                                 }
@@ -277,9 +295,108 @@ fun DetailSheetContent(
                                             text = "${g.pageCount}p",
                                             fontSize = 9.5.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.5.dp)
                                         )
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Metadata Info Card (ID tap to copy & Language)
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable {
+                                clipboardManager.setText(AnnotatedString(g.id.toString()))
+                                Toast.makeText(context, "작품 ID가 복사되었습니다 (${g.id})", Toast.LENGTH_SHORT).show()
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ContentCopy,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "작품 ID (탭하여 복사)",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "#${g.id}",
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    if (!g.language.isNullOrBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 8.dp, horizontal = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Translate,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = "언어",
+                                        fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = g.language.uppercase(),
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
                                 }
                             }
                         }
@@ -296,7 +413,13 @@ fun DetailSheetContent(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Button(
-                        onClick = { onStartReader(g.id, 0) },
+                        onClick = {
+                            scope.launch {
+                                DbManager.addRecentViewed(g.id)
+                                DbManager.cacheGallery(g)
+                            }
+                            onStartReader(g.id, 0)
+                        },
                         modifier = Modifier
                             .weight(1f)
                             .height(36.dp),
@@ -428,10 +551,17 @@ fun DetailSheetContent(
                                     modifier = Modifier
                                         .aspectRatio(0.72f)
                                         .clip(RoundedCornerShape(8.dp))
-                                        .clickable { onStartReader(g.id, index) }
+                                        .clickable {
+                                            scope.launch {
+                                                DbManager.addRecentViewed(g.id)
+                                                DbManager.cacheGallery(g)
+                                            }
+                                            onStartReader(g.id, index)
+                                        }
                                 ) {
-                                    AsyncImage(
-                                        model = img.url,
+                                    HitomiImage(
+                                        url = img.url,
+                                        imageHash = img.hash,
                                         contentDescription = "Page ${index + 1}",
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize()

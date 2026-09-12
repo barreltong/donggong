@@ -43,6 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -83,8 +84,11 @@ fun HistoryScreen(
         isLoading = false
     }
 
-    LaunchedEffect(Unit) {
-        loadHistory()
+    LifecycleResumeEffect(Unit) {
+        scope.launch {
+            loadHistory()
+        }
+        onPauseOrDispose { }
     }
 
     Scaffold(
@@ -167,8 +171,8 @@ fun HistoryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(historyGalleries, key = { it.id }) { gallery ->
                     val dismissState = rememberSwipeToDismissBoxState(
@@ -190,7 +194,7 @@ fun HistoryScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .clip(RoundedCornerShape(14.dp))
+                                    .clip(RoundedCornerShape(16.dp))
                                     .background(MaterialTheme.colorScheme.errorContainer)
                                     .padding(horizontal = 16.dp),
                                 contentAlignment = alignment
@@ -207,7 +211,13 @@ fun HistoryScreen(
                             gallery = gallery,
                             isFavorite = favorites.isFavorite("gallery", gallery.id.toString()),
                             onFavoriteToggle = { onFavoriteToggle("gallery", gallery.id.toString(), gallery) },
-                            onClick = { onStartReader(gallery.id, 0) },
+                            onClick = {
+                                scope.launch {
+                                    DbManager.addRecentViewed(gallery.id)
+                                    DbManager.cacheGallery(gallery)
+                                }
+                                onStartReader(gallery.id, 0)
+                            },
                             onLongClick = { selectedDetailId = gallery.id },
                             onTagClick = onSearchTag,
                             viewMode = "detailed"

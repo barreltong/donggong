@@ -363,11 +363,11 @@ fun HomeScreen(
                 }
                 cardViewMode == "grid" -> {
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 130.dp),
+                        columns = GridCells.Adaptive(minSize = 145.dp),
                         state = gridState,
-                        contentPadding = PaddingValues(6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        contentPadding = PaddingValues(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(galleries, key = { it.id }) { g ->
@@ -375,7 +375,13 @@ fun HomeScreen(
                                 gallery = g,
                                 isFavorite = favorites.isFavorite("gallery", g.id.toString()),
                                 onFavoriteToggle = { onFavoriteToggle("gallery", g.id.toString(), g) },
-                                onClick = { onStartReader(g.id, 0) },
+                                onClick = {
+                                    scope.launch {
+                                        DbManager.addRecentViewed(g.id)
+                                        DbManager.cacheGallery(g)
+                                    }
+                                    onStartReader(g.id, 0)
+                                },
                                 onLongClick = { selectedDetailId = g.id },
                                 favorites = favorites,
                                 onTagClick = { tag ->
@@ -406,8 +412,8 @@ fun HomeScreen(
                 else -> {
                     LazyColumn(
                         state = listState,
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(galleries, key = { it.id }) { g ->
@@ -415,7 +421,13 @@ fun HomeScreen(
                                 gallery = g,
                                 isFavorite = favorites.isFavorite("gallery", g.id.toString()),
                                 onFavoriteToggle = { onFavoriteToggle("gallery", g.id.toString(), g) },
-                                onClick = { onStartReader(g.id, 0) },
+                                onClick = {
+                                    scope.launch {
+                                        DbManager.addRecentViewed(g.id)
+                                        DbManager.cacheGallery(g)
+                                    }
+                                    onStartReader(g.id, 0)
+                                },
                                 onLongClick = { selectedDetailId = g.id },
                                 favorites = favorites,
                                 onTagClick = { tag ->

@@ -113,6 +113,13 @@ fun DonggongMainApp() {
 
         val showBottomBar = currentRoute in listOf("home", "favorites", "history", "settings")
 
+        val openReader: (Long, Int) -> Unit = { targetId, page ->
+            scope.launch {
+                DbManager.addRecentViewed(targetId)
+            }
+            navController.navigate("reader/$targetId?page=$page")
+        }
+
         Scaffold(
             bottomBar = {
                 if (showBottomBar) {
@@ -222,9 +229,7 @@ fun DonggongMainApp() {
                     HomeScreen(
                         favorites = favorites,
                         onFavoriteToggle = ::toggleFavorite,
-                        onStartReader = { targetId, page ->
-                            navController.navigate("reader/$targetId?page=$page")
-                        },
+                        onStartReader = openReader,
                         onGalleryClick = { id ->
                             navController.navigate("detail/$id")
                         },
@@ -248,9 +253,7 @@ fun DonggongMainApp() {
                         favorites = favorites,
                         onFavoriteToggle = ::toggleFavorite,
                         onBack = { navController.popBackStack() },
-                        onStartReader = { targetId, page ->
-                            navController.navigate("reader/$targetId?page=$page")
-                        },
+                        onStartReader = openReader,
                         onSearchTag = { tag ->
                             navController.popBackStack("home", false)
                         }
@@ -285,9 +288,7 @@ fun DonggongMainApp() {
                         onFavoritesImported = { imported ->
                             favorites = imported
                         },
-                        onStartReader = { targetId, page ->
-                            navController.navigate("reader/$targetId?page=$page")
-                        },
+                        onStartReader = openReader,
                         onGalleryClick = { id ->
                             navController.navigate("detail/$id")
                         },
@@ -301,9 +302,7 @@ fun DonggongMainApp() {
                     HistoryScreen(
                         favorites = favorites,
                         onFavoriteToggle = ::toggleFavorite,
-                        onStartReader = { targetId, page ->
-                            navController.navigate("reader/$targetId?page=$page")
-                        },
+                        onStartReader = openReader,
                         onSearchTag = { tag ->
                             navController.navigate("home")
                         }
