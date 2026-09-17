@@ -65,6 +65,7 @@ import com.example.donggong.core.DonggongBridge
 import com.example.donggong.data.DbManager
 import com.example.donggong.data.Gallery
 import com.example.donggong.ui.components.HitomiImage
+import com.example.donggong.ui.components.ZoomableBox
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -159,15 +160,20 @@ fun ReaderScreen(
                                 val ratio = if (img.width > 0 && img.height > 0) {
                                     img.width.toFloat() / img.height.toFloat()
                                 } else 0.70f
-                                HitomiImage(
-                                    url = img.url,
-                                    imageHash = img.hash,
-                                    contentDescription = "Page ${index + 1}",
-                                    contentScale = ContentScale.FillWidth,
+                                ZoomableBox(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .aspectRatio(ratio)
-                                )
+                                        .aspectRatio(ratio),
+                                    resetKey = index
+                                ) {
+                                    HitomiImage(
+                                        url = img.url,
+                                        imageHash = img.hash,
+                                        contentDescription = "Page ${index + 1}",
+                                        contentScale = ContentScale.FillWidth,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
                             }
                         }
                     }
@@ -186,13 +192,18 @@ fun ReaderScreen(
                             modifier = Modifier.fillMaxSize()
                         ) { page ->
                             val img = images[page]
-                            HitomiImage(
-                                url = img.url,
-                                imageHash = img.hash,
-                                contentDescription = "Page ${page + 1}",
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.fillMaxSize()
-                            )
+                            ZoomableBox(
+                                modifier = Modifier.fillMaxSize(),
+                                resetKey = page
+                            ) {
+                                HitomiImage(
+                                    url = img.url,
+                                    imageHash = img.hash,
+                                    contentDescription = "Page ${page + 1}",
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
 
@@ -210,13 +221,18 @@ fun ReaderScreen(
                             modifier = Modifier.fillMaxSize()
                         ) { page ->
                             val img = images[page]
-                            HitomiImage(
-                                url = img.url,
-                                imageHash = img.hash,
-                                contentDescription = "Page ${page + 1}",
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.fillMaxSize()
-                            )
+                            ZoomableBox(
+                                modifier = Modifier.fillMaxSize(),
+                                resetKey = page
+                            ) {
+                                HitomiImage(
+                                    url = img.url,
+                                    imageHash = img.hash,
+                                    contentDescription = "Page ${page + 1}",
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
 
@@ -249,41 +265,46 @@ fun ReaderScreen(
                                 if (secondIndex < totalPages) images[secondIndex] else null
                             }
 
-                            Row(
+                            ZoomableBox(
                                 modifier = Modifier.fillMaxSize(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
+                                resetKey = pairIndex
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxSize(),
-                                    contentAlignment = Alignment.Center
+                                Row(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    leftImg?.let {
-                                        HitomiImage(
-                                            url = it.url,
-                                            imageHash = it.hash,
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Fit,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        leftImg?.let {
+                                            HitomiImage(
+                                                url = it.url,
+                                                imageHash = it.hash,
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Fit,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        }
                                     }
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    rightImg?.let {
-                                        HitomiImage(
-                                            url = it.url,
-                                            imageHash = it.hash,
-                                            contentDescription = null,
-                                            contentScale = ContentScale.Fit,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        rightImg?.let {
+                                            HitomiImage(
+                                                url = it.url,
+                                                imageHash = it.hash,
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Fit,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        }
                                     }
                                 }
                             }

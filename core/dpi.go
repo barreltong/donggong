@@ -54,7 +54,7 @@ func newDPIEngine() *dpiEngine {
 	return &dpiEngine{
 		client: &http.Client{
 			Transport: transport,
-			Timeout:   30 * time.Second,
+			Timeout:   15 * time.Second,
 		},
 	}
 }
@@ -111,7 +111,8 @@ func (d *dpiEngine) Fetch(rawURL string, customHeaders map[string]string) ([]byt
 			continue
 		}
 
-		if resp.StatusCode == 404 || (resp.StatusCode >= 200 && resp.StatusCode < 300) || resp.StatusCode == 206 {
+		// 404 is the CDN saying the key rotated; retrying the same URL cannot help.
+		if resp.StatusCode == 404 || (resp.StatusCode >= 200 && resp.StatusCode < 300) {
 			return body, resp.StatusCode, resp.Header, nil
 		}
 

@@ -39,7 +39,7 @@ func newHitomiClient(dpi *dpiEngine) *hitomiClient {
 	return &hitomiClient{
 		dpi:     dpi,
 		cache:   newLRUCache(200),
-		ggCache: newGgCache(5 * time.Minute),
+		ggCache: newGgCache(5*time.Minute, 20*time.Second),
 	}
 }
 
@@ -344,7 +344,7 @@ func (h *hitomiClient) GetReaderData(id int64) (*Gallery, error) {
 		return nil, err
 	}
 
-	ggScript, err := h.getGgScript(false)
+	ggTable, err := h.getGgTable(false)
 	if err != nil {
 		return gallery, err
 	}
@@ -371,7 +371,7 @@ func (h *hitomiClient) GetReaderData(id int64) (*Gallery, error) {
 		hash, _ := fMap["hash"].(string)
 		w, _ := fMap["width"].(float64)
 		height, _ := fMap["height"].(float64)
-		imgURL := buildImageUrl(hash, ggScript)
+		imgURL := buildImageUrl(hash, ggTable)
 		images = append(images, GalleryImage{
 			Hash:   hash,
 			URL:    imgURL,
@@ -387,11 +387,11 @@ func (h *hitomiClient) GetReaderData(id int64) (*Gallery, error) {
 }
 
 func (h *hitomiClient) ResolveImageUrl(hash string, forceRefresh bool) (string, error) {
-	ggScript, err := h.getGgScript(forceRefresh)
+	table, err := h.getGgTable(forceRefresh)
 	if err != nil {
 		return "", err
 	}
-	return buildImageUrl(hash, ggScript), nil
+	return buildImageUrl(hash, table), nil
 }
 
 func (h *hitomiClient) GetTagSuggestions(query string) ([]TagSuggestion, error) {
@@ -446,25 +446,18 @@ func (h *hitomiClient) GetTagSuggestions(query string) ([]TagSuggestion, error) 
 	return suggestions, nil
 }
 
-func (h *hitomiClient) getGgScript(forceRefresh bool) (string, error) {
-	if !forceRefresh {
-		if script, ok := h.ggCache.Get(); ok {
-			return script, nil
+func (h *hitomiClient) getGgTable(forceRefresh bool) (*ggTable, error) {
+	return h.ggCache.Load(forceRefresh, func() (*ggTable, error) {
+		u := fmt.Sprintf("%s/gg.js", CDNBase)
+		body, code, _, err := h.dpi.Fetch(u, nil)
+		if err != nil {
+			return nil, err
 		}
-	}
-
-	u := fmt.Sprintf("%s/gg.js", CDNBase)
-	body, code, _, err := h.dpi.Fetch(u, nil)
-	if err != nil || code != 200 || len(body) == 0 {
-		if script, ok := h.ggCache.Get(); ok {
-			return script, nil
+		if code != 200 || len(body) == 0 {
+			return nil, fmt.Errorf("failed to fetch gg.js: status %d", code)
 		}
-		return "", fmt.Errorf("failed to fetch gg.js: %w", err)
-	}
-
-	script := string(body)
-	h.ggCache.Set(script)
-	return script, nil
+		return parseGgTable(string(body))
+	})
 }
 
 func (h *hitomiClient) fetchDetailsConcurrently(ids []int64) []Gallery {
@@ -501,13 +494,14 @@ func (h *hitomiClient) fetchDetailsConcurrently(ids []int64) []Gallery {
 	return galleries
 }
 
-func buildImageUrl(hash, gg string) string {
-	if len(hash) < 3 {
-		return ""
+func parseGgTable(gg string) (*ggTable, error) {
+	commonKey := ""
+	if m := commonKeyRe.FindStringSubmatch(gg); len(m) > 1 {
+		commonKey = m[1]
 	}
-
-	s := string(hash[len(hash)-1]) + string(hash[len(hash)-3:len(hash)-1])
-	imageId, _ := strconv.ParseInt(s, 16, 64)
+	if commonKey == "" {
+		return nil, fmt.Errorf("gg.js: missing common key")
+	}
 
 	defaultDomain := 1
 	if m := defaultDomainRe.FindStringSubmatch(gg); len(m) > 1 {
@@ -523,27 +517,37 @@ func buildImageUrl(hash, gg string) string {
 		}
 	}
 
-	commonKey := ""
-	if m := commonKeyRe.FindStringSubmatch(gg); len(m) > 1 {
-		commonKey = m[1]
-	}
-
-	offsets := make(map[int64]int)
 	matches := caseRe.FindAllStringSubmatch(gg, -1)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("gg.js: no case entries")
+	}
+	offsets := make(map[int64]int, len(matches))
 	for _, m := range matches {
-		if len(m) > 1 {
-			if caseVal, err := strconv.ParseInt(m[1], 10, 64); err == nil {
-				offsets[caseVal] = offsetDomain
-			}
+		if caseVal, err := strconv.ParseInt(m[1], 10, 64); err == nil {
+			offsets[caseVal] = offsetDomain
 		}
 	}
 
-	domain := defaultDomain
-	if off, exists := offsets[imageId]; exists {
+	return &ggTable{commonKey: commonKey, defaultDomain: defaultDomain, offsets: offsets}, nil
+}
+
+func buildImageUrl(hash string, table *ggTable) string {
+	if len(hash) < 3 || table == nil {
+		return ""
+	}
+
+	s := string(hash[len(hash)-1]) + string(hash[len(hash)-3:len(hash)-1])
+	imageId, err := strconv.ParseInt(s, 16, 64)
+	if err != nil {
+		return ""
+	}
+
+	domain := table.defaultDomain
+	if off, exists := table.offsets[imageId]; exists {
 		domain = off
 	}
 
-	return fmt.Sprintf("https://w%d.gold-usergeneratedcontent.net/%s/%d/%s.webp", domain, commonKey, imageId, hash)
+	return fmt.Sprintf("https://w%d.gold-usergeneratedcontent.net/%s/%d/%s.webp", domain, table.commonKey, imageId, hash)
 }
 
 func parseTagList(raw any, isTag bool) []string {

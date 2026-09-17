@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"sync"
 	"time"
 )
@@ -63,29 +64,79 @@ func (c *lruCache) Put(gallery *Gallery) {
 	c.items[gallery.ID] = gallery
 }
 
+// ggTable is the parsed form of gg.js: reparsing the ~40KB script per image was
+// the bulk of the cost on retry storms.
+type ggTable struct {
+	commonKey     string
+	defaultDomain int
+	offsets       map[int64]int
+}
+
 type ggCache struct {
-	mu        sync.RWMutex
-	script    string
-	fetchedAt time.Time
-	ttl       time.Duration
+	mu          sync.Mutex
+	table       *ggTable
+	fetchedAt   time.Time
+	attemptedAt time.Time
+	ttl         time.Duration
+	minRefresh  time.Duration
+	inflight    chan struct{}
+	lastErr     error
 }
 
-func newGgCache(ttl time.Duration) *ggCache {
-	return &ggCache{ttl: ttl}
+func newGgCache(ttl, minRefresh time.Duration) *ggCache {
+	return &ggCache{ttl: ttl, minRefresh: minRefresh}
 }
 
-func (g *ggCache) Get() (string, bool) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	if g.script != "" && time.Since(g.fetchedAt) < g.ttl {
-		return g.script, true
+// Load returns the cached table, running at most one fetch at a time so a screen
+// full of failing images cannot fan out into one gg.js request each. forceRefresh
+// is ignored while the cooldown since the last attempt has not elapsed.
+func (c *ggCache) Load(forceRefresh bool, fetch func() (*ggTable, error)) (*ggTable, error) {
+	c.mu.Lock()
+
+	if wait := c.inflight; wait != nil {
+		c.mu.Unlock()
+		<-wait
+		c.mu.Lock()
+		table, err := c.table, c.lastErr
+		c.mu.Unlock()
+		return ggResult(table, err)
 	}
-	return "", false
+
+	stale := c.table == nil || forceRefresh || time.Since(c.fetchedAt) >= c.ttl
+	cooling := !c.attemptedAt.IsZero() && time.Since(c.attemptedAt) < c.minRefresh
+	if !stale || cooling {
+		table, err := c.table, c.lastErr
+		c.mu.Unlock()
+		return ggResult(table, err)
+	}
+
+	done := make(chan struct{})
+	c.inflight = done
+	c.attemptedAt = time.Now()
+	c.mu.Unlock()
+
+	table, err := fetch()
+
+	c.mu.Lock()
+	c.lastErr = err
+	if err == nil && table != nil {
+		c.table = table
+		c.fetchedAt = time.Now()
+	}
+	cached := c.table
+	c.inflight = nil
+	c.mu.Unlock()
+	close(done)
+
+	return ggResult(cached, err)
 }
 
-func (g *ggCache) Set(script string) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	g.script = script
-	g.fetchedAt = time.Now()
+func ggResult(table *ggTable, err error) (*ggTable, error) {
+	if table != nil {
+		return table, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return nil, errors.New("gg.js unavailable")
 }

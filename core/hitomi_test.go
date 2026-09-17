@@ -1,7 +1,11 @@
 package core
 
 import (
+	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestParseNozomi(t *testing.T) {
@@ -38,11 +42,102 @@ o = 1; break;
 return o;
 b: '1789239601/'
 `
+	table, err := parseGgTable(sampleGg)
+	if err != nil {
+		t.Fatalf("parseGgTable failed: %v", err)
+	}
+
 	hash := "a98dcd6e984ad6039c8096087074881b60d5a9146f82fdf5adfa88dcf383a9ba"
-	url := buildImageUrl(hash, sampleGg)
+	url := buildImageUrl(hash, table)
 	expected := "https://w2.gold-usergeneratedcontent.net/1789239601/2715/a98dcd6e984ad6039c8096087074881b60d5a9146f82fdf5adfa88dcf383a9ba.webp"
 	if url != expected {
 		t.Fatalf("expected %q, got %q", expected, url)
+	}
+
+	// A hash whose id misses every case falls back to the default domain.
+	missHash := "a98dcd6e984ad6039c8096087074881b60d5a9146f82fdf5adfa88dcf383a001"
+	if got := buildImageUrl(missHash, table); got != "https://w1.gold-usergeneratedcontent.net/1789239601/256/"+missHash+".webp" {
+		t.Fatalf("unexpected default-domain url: %q", got)
+	}
+}
+
+func TestParseGgTableRejectsGarbage(t *testing.T) {
+	if _, err := parseGgTable("not a gg script"); err == nil {
+		t.Fatalf("expected error for unparseable gg.js")
+	}
+	// A truncated fetch that still carries the key but no cases must not yield a
+	// table that silently routes every image to the default domain.
+	if _, err := parseGgTable("b: '1789239601/'\nvar o = 0;"); err == nil {
+		t.Fatalf("expected error when case table is missing")
+	}
+}
+
+func TestGgCacheCoalescesAndCoolsDown(t *testing.T) {
+	cache := newGgCache(time.Minute, 50*time.Millisecond)
+	table := &ggTable{commonKey: "1", defaultDomain: 1, offsets: map[int64]int{}}
+
+	var calls atomic.Int32
+	fetch := func() (*ggTable, error) {
+		calls.Add(1)
+		time.Sleep(20 * time.Millisecond)
+		return table, nil
+	}
+
+	var wg sync.WaitGroup
+	for range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := cache.Load(true, fetch); err != nil {
+				t.Errorf("Load failed: %v", err)
+			}
+		}()
+	}
+	wg.Wait()
+
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("expected 32 concurrent forced loads to coalesce into 1 fetch, got %d", got)
+	}
+
+	// Still inside the cooldown: a forced refresh must reuse the cached table.
+	if _, err := cache.Load(true, fetch); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("expected cooldown to suppress refetch, got %d fetches", got)
+	}
+
+	time.Sleep(60 * time.Millisecond)
+	if _, err := cache.Load(true, fetch); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("expected refetch after cooldown, got %d fetches", got)
+	}
+}
+
+func TestGgCacheServesStaleTableOnFetchError(t *testing.T) {
+	cache := newGgCache(time.Millisecond, 0)
+	table := &ggTable{commonKey: "1", defaultDomain: 1, offsets: map[int64]int{}}
+
+	if _, err := cache.Load(false, func() (*ggTable, error) { return table, nil }); err != nil {
+		t.Fatalf("seed load failed: %v", err)
+	}
+	time.Sleep(5 * time.Millisecond)
+
+	got, err := cache.Load(true, func() (*ggTable, error) { return nil, errors.New("network down") })
+	if err != nil {
+		t.Fatalf("expected stale table to be served, got error: %v", err)
+	}
+	if got != table {
+		t.Fatalf("expected the cached table back")
+	}
+}
+
+func TestGgCacheReportsErrorWithoutCachedTable(t *testing.T) {
+	cache := newGgCache(time.Minute, 0)
+	if _, err := cache.Load(false, func() (*ggTable, error) { return nil, errors.New("network down") }); err == nil {
+		t.Fatalf("expected error when nothing is cached")
 	}
 }
 
