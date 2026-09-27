@@ -52,6 +52,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -64,11 +65,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.annotation.ExperimentalCoilApi
+import coil.imageLoader
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import com.example.donggong.core.DonggongBridge
 import com.example.donggong.data.DbManager
 import com.example.donggong.data.Gallery
@@ -76,9 +82,14 @@ import com.example.donggong.data.Favorites
 import com.example.donggong.ui.components.HitomiImage
 import com.example.donggong.ui.components.ZoomableBox
 import com.example.donggong.ui.theme.tr
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalCoilApi::class)
 @Composable
 fun ReaderScreen(
     galleryId: Long,
@@ -134,6 +145,57 @@ fun ReaderScreen(
     val horizontalReverse = pageTurnDirection == "right"
 
     val listState = rememberLazyListState()
+    val context = LocalContext.current
+    val imageLoader = context.imageLoader
+    val prefetchJobs = remember(galleryId) { mutableMapOf<String, Job>() }
+    val prefetchSlots = remember(galleryId) { Semaphore(2) }
+    DisposableEffect(galleryId) {
+        onDispose {
+            prefetchJobs.values.forEach(Job::cancel)
+            prefetchJobs.clear()
+        }
+    }
+
+    LaunchedEffect(images, currentPage, readerMode) {
+        if (images.isEmpty()) return@LaunchedEffect
+        val spread = readerMode == "doublePage"
+        val first = if (spread) (currentPage / 2 + 1) * 2 else currentPage + 1
+        val count = if (spread) 4 else 2
+        val upcoming = (first until first + count).mapNotNull(images::getOrNull)
+            .map { it.url }.filter(String::isNotBlank).toSet()
+        val visible = if (spread) (currentPage / 2 * 2 until currentPage / 2 * 2 + 2)
+            .mapNotNull(images::getOrNull).map { it.url }.toSet()
+        else setOf(images[currentPage.coerceIn(0, images.lastIndex)].url)
+
+        prefetchJobs.entries.removeAll { (url, job) ->
+            if (job.isCompleted) true
+            else if (url !in upcoming && url !in visible) {
+                job.cancel()
+                true
+            } else false
+        }
+        upcoming.filter { it !in visible && it !in prefetchJobs }.forEach { url ->
+            prefetchJobs[url] = scope.launch(Dispatchers.IO) {
+                delay(100)
+                prefetchSlots.withPermit {
+                    val cached = imageLoader.diskCache?.openSnapshot(url)
+                    if (cached != null) {
+                        cached.close()
+                        return@withPermit
+                    }
+                    imageLoader.execute(
+                        ImageRequest.Builder(context)
+                            .data(url)
+                            .diskCacheKey(url)
+                            .memoryCachePolicy(CachePolicy.DISABLED)
+                            .diskCachePolicy(CachePolicy.WRITE_ONLY)
+                            .size(1, 1)
+                            .build()
+                    )
+                }
+            }
+        }
+    }
 
     LaunchedEffect(readerMode, totalPages) {
         if (totalPages == 0) return@LaunchedEffect

@@ -9,24 +9,31 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
 type fragmentingConn struct {
 	net.Conn
+	firstWrite sync.Once
 }
 
-func (c *fragmentingConn) Write(b []byte) (int, error) {
-	if len(b) > 1 {
-		n1, err := c.Conn.Write(b[:1])
-		if err != nil {
-			return n1, err
-		}
-		time.Sleep(50 * time.Millisecond)
-		n2, err := c.Conn.Write(b[1:])
-		return n1 + n2, err
+func (c *fragmentingConn) Write(b []byte) (n int, err error) {
+	fragment := false
+	c.firstWrite.Do(func() { fragment = true })
+	if !fragment || len(b) <= 1 {
+		return c.Conn.Write(b)
 	}
-	return c.Conn.Write(b)
+
+	// Split only the first TLS write. This preserves the DPI bypass for the
+	// ClientHello without adding a delay to every encrypted HTTP write.
+	n1, err := c.Conn.Write(b[:1])
+	if err != nil {
+		return n1, err
+	}
+	time.Sleep(50 * time.Millisecond)
+	n2, err := c.Conn.Write(b[1:])
+	return n1 + n2, err
 }
 
 type dpiEngine struct {
@@ -34,8 +41,11 @@ type dpiEngine struct {
 }
 
 func newDPIEngine() *dpiEngine {
+	tlsConfig := &tls.Config{
+		NextProtos: []string{"h2", "http/1.1"},
+	}
 	transport := &http.Transport{
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+		DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			var dialer net.Dialer
 			conn, err := dialer.DialContext(ctx, network, addr)
 			if err != nil {
@@ -44,11 +54,29 @@ func newDPIEngine() *dpiEngine {
 			if tcpConn, ok := conn.(*net.TCPConn); ok {
 				_ = tcpConn.SetNoDelay(true)
 			}
-			return &fragmentingConn{Conn: conn}, nil
+
+			host, _, err := net.SplitHostPort(addr)
+			if err != nil {
+				_ = conn.Close()
+				return nil, fmt.Errorf("invalid TLS address %q: %w", addr, err)
+			}
+			config := tlsConfig.Clone()
+			// The DNS-dot URL intentionally ends the hostname with a dot. DNS
+			// keeps that bypass behavior, while certificate verification uses
+			// the canonical hostname expected by the CDN certificate.
+			config.ServerName = strings.TrimSuffix(host, ".")
+			tlsConn := tls.Client(&fragmentingConn{Conn: conn}, config)
+			if err := tlsConn.HandshakeContext(ctx); err != nil {
+				_ = tlsConn.Close()
+				return nil, err
+			}
+			return tlsConn, nil
 		},
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
+		TLSClientConfig:     tlsConfig,
+		ForceAttemptHTTP2:   true,
+		MaxIdleConns:        16,
+		MaxIdleConnsPerHost: 4,
+		IdleConnTimeout:     90 * time.Second,
 	}
 
 	return &dpiEngine{

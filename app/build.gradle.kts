@@ -40,8 +40,8 @@ android {
         applicationId = "com.example.donggong"
         minSdk = 26
         targetSdk = 35
-        versionCode = 250
-        versionName = "2.5.0"
+        versionCode = 251
+        versionName = "2.5.1"
 
         ndk {
             abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86_64"))
