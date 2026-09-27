@@ -62,6 +62,8 @@ fun TagChip(
     favorites: Favorites? = null,
     modifier: Modifier = Modifier
 ) {
+    val addedMessage = com.example.donggong.ui.theme.tr("즐겨찾기에 추가되었습니다", "Added to favorites")
+    val removedMessage = com.example.donggong.ui.theme.tr("즐겨찾기에서 제거되었습니다", "Removed from favorites")
     val info = remember(tag) { TagInfo.parse(tag) }
     val effectiveFav = isFavorite ?: (favorites?.isFavorite(info.type, info.value) == true)
     val haptic = LocalHapticFeedback.current
@@ -99,7 +101,7 @@ fun TagChip(
                 onLongClick = if (onLongClick != null) {
                     {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        val msg = if (effectiveFav) "즐겨찾기에서 제거되었습니다" else "즐겨찾기에 추가되었습니다"
+                        val msg = if (effectiveFav) removedMessage else addedMessage
                         Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                         onLongClick(tag)
                     }

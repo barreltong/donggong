@@ -1,11 +1,11 @@
 package com.example.donggong.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,6 +42,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -54,7 +56,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import com.example.donggong.core.DonggongBridge
@@ -73,6 +74,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.example.donggong.data.TagInfo
 import com.example.donggong.ui.screens.DetailSheetContent
+import com.example.donggong.ui.theme.tr
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,21 +82,23 @@ fun HomeScreen(
     favorites: Favorites,
     onFavoriteToggle: (String, String, Gallery?) -> Unit,
     onStartReader: (Long, Int) -> Unit,
-    onGalleryClick: ((Long) -> Unit)? = null,
     listingMode: String,
     cardViewMode: String,
     onCardViewModeChange: (String) -> Unit,
     defaultLanguage: String,
+    pendingSearch: String? = null,
+    onPendingSearchConsumed: () -> Unit = {},
+    state: HomeViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
-    var query by remember { mutableStateOf("") }
-    var activeQuery by remember { mutableStateOf("") }
-    var currentPage by remember { mutableIntStateOf(1) }
-    var totalCount by remember { mutableIntStateOf(0) }
-    var galleries by remember { mutableStateOf<List<Gallery>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var isRefreshing by remember { mutableStateOf(false) }
-    var recentSearches by remember { mutableStateOf<List<String>>(emptyList()) }
+    var query by state.query
+    var activeQuery by state.activeQuery
+    var currentPage by state.currentPage
+    var totalCount by state.totalCount
+    var galleries by state.galleries
+    var isLoading by state.isLoading
+    var isRefreshing by state.isRefreshing
+    var recentSearches by state.recentSearches
     var selectedDetailId by remember { mutableStateOf<Long?>(null) }
     var isSearchFocused by remember { mutableStateOf(false) }
 
@@ -112,36 +116,40 @@ fun HomeScreen(
 
     suspend fun loadData(page: Int, refresh: Boolean = false) {
         if (isLoading && !refresh) return
+        val request = ++state.requestVersion
+        val requestedQuery = activeQuery
         isLoading = true
-        if (refresh) {
+        try {
+            val result = if (requestedQuery.isNotBlank()) {
+                DonggongBridge.search(requestedQuery, page, defaultLanguage)
+            } else {
+                DonggongBridge.getList(page, defaultLanguage)
+            }
+            if (request != state.requestVersion) return
+            totalCount = result.totalCount
+            galleries = if (listingMode == "pagination" || refresh) {
+                result.galleries
+            } else {
+                val existingIds = galleries.asSequence().map { it.id }.toHashSet()
+                galleries + result.galleries.filter { it.id !in existingIds }
+            }
             currentPage = page
+        } finally {
+            if (request == state.requestVersion) {
+                isLoading = false
+                isRefreshing = false
+            }
         }
-
-        val result = if (activeQuery.isNotBlank()) {
-            DonggongBridge.search(activeQuery, page, defaultLanguage)
-        } else {
-            DonggongBridge.getList(page, defaultLanguage)
-        }
-
-        totalCount = result.totalCount
-        if (listingMode == "pagination" || refresh) {
-            galleries = result.galleries
-        } else {
-            val existingIds = galleries.map { it.id }.toSet()
-            val newItems = result.galleries.filter { it.id !in existingIds }
-            galleries = galleries + newItems
-        }
-        currentPage = page
-        isLoading = false
-        isRefreshing = false
     }
 
     fun submitSearch(newQuery: String) {
-        activeQuery = newQuery.trim()
-        currentPage = 1
+        val normalized = TagInfo.normalizeQuery(newQuery)
+        query = newQuery
+        ++state.requestVersion
+        activeQuery = normalized
         scope.launch {
-            if (activeQuery.isNotEmpty()) {
-                DbManager.addRecentSearch(activeQuery)
+            if (normalized.isNotEmpty()) {
+                DbManager.addRecentSearch(normalized)
                 recentSearches = DbManager.getRecentSearches()
             }
             loadData(1, refresh = true)
@@ -150,18 +158,26 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(defaultLanguage) {
         recentSearches = DbManager.getRecentSearches()
-        loadData(1, refresh = true)
+        if (galleries.isEmpty() || state.loadedLanguage != defaultLanguage) {
+            state.loadedLanguage = defaultLanguage
+            loadData(1, refresh = true)
+        }
     }
 
-    LaunchedEffect(query) {
-        if (query.trim().isEmpty() && activeQuery.isNotEmpty()) {
-            activeQuery = ""
-            currentPage = 1
-            loadData(1, refresh = true)
-            if (cardViewMode == "grid") gridState.scrollToItem(0)
-            else listState.scrollToItem(0)
+    LaunchedEffect(pendingSearch) {
+        if (pendingSearch != null) {
+            submitSearch(pendingSearch)
+            onPendingSearchConsumed()
+        }
+    }
+
+    BackHandler(enabled = isSearchFocused || activeQuery.isNotEmpty()) {
+        if (isSearchFocused) {
+            focusManager.clearFocus()
+        } else {
+            submitSearch("")
         }
     }
 
@@ -201,7 +217,16 @@ fun HomeScreen(
             DonggongSearchBar(
                 query = query,
                 onQueryChange = { query = it },
-                onSearch = { submitSearch(it) },
+                onSearch = { text ->
+                    val normalized = TagInfo.normalizeQuery(text)
+                    val id = normalized.toLongOrNull()
+                    if (id != null && id > 0) {
+                        focusManager.clearFocus()
+                        onStartReader(id, 0)
+                    } else {
+                        submitSearch(normalized)
+                    }
+                },
                 favorites = favorites,
                 recentSearches = recentSearches,
                 onRemoveRecentSearch = { rem ->
@@ -316,7 +341,7 @@ fun HomeScreen(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "작품 목록 불러오는 중...",
+                                text = tr("작품 목록 불러오는 중...", "Loading galleries..."),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -348,13 +373,13 @@ fun HomeScreen(
                             }
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "검색 결과가 없습니다",
+                                text = tr("검색 결과가 없습니다", "No results found"),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "다른 검색어나 언어로 다시 시도해보세요",
+                                text = tr("다른 검색어나 언어로 다시 시도해보세요", "Try another search or language"),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -376,10 +401,6 @@ fun HomeScreen(
                                 isFavorite = favorites.isFavorite("gallery", g.id.toString()),
                                 onFavoriteToggle = { onFavoriteToggle("gallery", g.id.toString(), g) },
                                 onClick = {
-                                    scope.launch {
-                                        DbManager.addRecentViewed(g.id)
-                                        DbManager.cacheGallery(g)
-                                    }
                                     onStartReader(g.id, 0)
                                 },
                                 onLongClick = { selectedDetailId = g.id },
@@ -422,10 +443,6 @@ fun HomeScreen(
                                 isFavorite = favorites.isFavorite("gallery", g.id.toString()),
                                 onFavoriteToggle = { onFavoriteToggle("gallery", g.id.toString(), g) },
                                 onClick = {
-                                    scope.launch {
-                                        DbManager.addRecentViewed(g.id)
-                                        DbManager.cacheGallery(g)
-                                    }
                                     onStartReader(g.id, 0)
                                 },
                                 onLongClick = { selectedDetailId = g.id },
@@ -458,19 +475,6 @@ fun HomeScreen(
             }
         }
 
-        if (isSearchFocused) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onPress = {
-                                focusManager.clearFocus()
-                            }
-                        )
-                    }
-            )
-        }
     }
 }
 
@@ -499,4 +503,30 @@ fun HomeScreen(
             )
         }
     }
+}
+
+class HomeViewModel : ViewModel() {
+    val query = mutableStateOf("")
+    val activeQuery = mutableStateOf("")
+    val currentPage = mutableIntStateOf(1)
+    val totalCount = mutableIntStateOf(0)
+    val galleries = mutableStateOf<List<Gallery>>(emptyList())
+    val isLoading = mutableStateOf(false)
+    val isRefreshing = mutableStateOf(false)
+    val recentSearches = mutableStateOf<List<String>>(emptyList())
+    var loadedLanguage: String? = null
+
+    fun clear() {
+        ++requestVersion
+        query.value = ""
+        activeQuery.value = ""
+        currentPage.intValue = 1
+        totalCount.intValue = 0
+        galleries.value = emptyList()
+        recentSearches.value = emptyList()
+        loadedLanguage = null
+        isLoading.value = false
+        isRefreshing.value = false
+    }
+    var requestVersion = 0
 }

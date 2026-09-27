@@ -1,6 +1,8 @@
 package com.example.donggong.data
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.jsonObject
 
 @Serializable
 data class GalleryImage(
@@ -196,4 +198,116 @@ data class DonggongJsonBackup(
         parodys = favoriteParody.toSet(),
         characters = favoriteCharacter.toSet()
     )
+}
+object FavoritesBackup {
+    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
+    fun encode(favorites: Favorites): String = json.encodeToString(
+        DonggongJsonBackup(
+            favoriteId = favorites.galleries.toList(),
+            favoriteArtist = favorites.artists.toList(),
+            favoriteTag = favorites.tags.toList(),
+            favoriteLanguage = favorites.languages.toList(),
+            favoriteGroup = favorites.groups.toList(),
+            favoriteParody = favorites.parodys.toList(),
+            favoriteCharacter = favorites.characters.toList()
+        )
+    )
+
+    /** Returns null for an unrecognized or structurally invalid backup. */
+    fun decode(raw: String): Favorites? {
+        val root = try {
+            json.parseToJsonElement(raw).jsonObject
+        } catch (_: Exception) {
+            return null
+        }
+        val donggongKeys = setOf(
+            "favoriteId", "favoriteArtist", "favoriteTag", "favoriteLanguage",
+            "favoriteGroup", "favoriteParody", "favoriteCharacter"
+        )
+        return when {
+            root.keys.any { it in donggongKeys } -> decodeDonggong(root)
+            root.containsKey("favorites") || root.containsKey("favorite_tags") -> decodePupil(root)
+            else -> null
+        }
+    }
+
+    private fun decodeDonggong(root: kotlinx.serialization.json.JsonObject): Favorites? {
+        fun strings(key: String): List<String>? {
+            val element = root[key] ?: return emptyList()
+            val array = element as? kotlinx.serialization.json.JsonArray ?: return null
+            return array.map { item ->
+                val primitive = item as? kotlinx.serialization.json.JsonPrimitive ?: return null
+                if (!primitive.isString) return null
+                primitive.content
+            }
+        }
+        fun ids(key: String): List<Long>? {
+            val element = root[key] ?: return emptyList()
+            val array = element as? kotlinx.serialization.json.JsonArray ?: return null
+            return array.map { item ->
+                val primitive = item as? kotlinx.serialization.json.JsonPrimitive ?: return null
+                primitive.content.toLongOrNull() ?: return null
+            }
+        }
+        val ids = ids("favoriteId") ?: return null
+        val artists = strings("favoriteArtist") ?: return null
+        val tags = strings("favoriteTag") ?: return null
+        val languages = strings("favoriteLanguage") ?: return null
+        val groups = strings("favoriteGroup") ?: return null
+        val parodys = strings("favoriteParody") ?: return null
+        val characters = strings("favoriteCharacter") ?: return null
+        return DonggongJsonBackup(ids, artists, tags, languages, groups, parodys, characters).toFavorites()
+    }
+
+    private fun decodePupil(root: kotlinx.serialization.json.JsonObject): Favorites? {
+        val favoriteIds = root["favorites"]?.let { element ->
+            val array = element as? kotlinx.serialization.json.JsonArray ?: return null
+            array.map { item ->
+                val primitive = item as? kotlinx.serialization.json.JsonPrimitive ?: return null
+                primitive.content.toLongOrNull() ?: return null
+            }
+        } ?: emptyList()
+        val favoriteTags = root["favorite_tags"]?.let { element ->
+            val array = element as? kotlinx.serialization.json.JsonArray ?: return null
+            array.map { item ->
+                val obj = item as? kotlinx.serialization.json.JsonObject ?: return null
+                val area = (obj["area"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                    ?: return null
+                val tag = (obj["tag"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                    ?: return null
+                if (area.isBlank() || tag.isBlank()) return null
+                area to tag
+            }
+        } ?: emptyList()
+
+        val artists = linkedSetOf<String>()
+        val groups = linkedSetOf<String>()
+        val characters = linkedSetOf<String>()
+        val parodys = linkedSetOf<String>()
+        val languages = linkedSetOf<String>()
+        val tags = linkedSetOf<String>()
+        favoriteTags.forEach { (rawArea, rawTag) ->
+            val area = Favorites.canonicalType(rawArea)
+            val value = TagInfo.normalizeTagValue(rawTag)
+            when (area) {
+                "artist" -> artists += value
+                "group" -> groups += value
+                "character" -> characters += value
+                "series" -> parodys += value
+                "language" -> languages += value
+                "tag", "male", "female" -> tags += TagInfo.parse("$area:$value").key
+                else -> return null
+            }
+        }
+        return Favorites(
+            galleries = favoriteIds.toSet(),
+            artists = artists,
+            groups = groups,
+            characters = characters,
+            parodys = parodys,
+            languages = languages,
+            tags = tags
+        )
+    }
 }

@@ -24,7 +24,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.donggong.ui.screens.HomeViewModel
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,13 +45,14 @@ import androidx.navigation.navArgument
 import com.example.donggong.data.DbManager
 import com.example.donggong.data.Favorites
 import com.example.donggong.data.Gallery
-import com.example.donggong.ui.screens.DetailScreen
 import com.example.donggong.ui.screens.FavoritesScreen
 import com.example.donggong.ui.screens.HistoryScreen
 import com.example.donggong.ui.screens.HomeScreen
 import com.example.donggong.ui.screens.ReaderScreen
 import com.example.donggong.ui.screens.SettingsScreen
 import com.example.donggong.ui.theme.DonggongTheme
+import com.example.donggong.ui.theme.LocalAppLanguage
+import com.example.donggong.ui.theme.tr
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -65,6 +69,8 @@ class MainActivity : ComponentActivity() {
 fun DonggongMainApp() {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
+    val homeState: HomeViewModel = viewModel()
+    var pendingSearch by remember { mutableStateOf<String?>(null) }
 
     var favorites by remember { mutableStateOf(Favorites()) }
     var themeMode by remember { mutableStateOf("dark") }
@@ -73,6 +79,8 @@ fun DonggongMainApp() {
     var listingMode by remember { mutableStateOf("scroll") }
     var cardViewMode by remember { mutableStateOf("detailed") }
     var defaultLanguage by remember { mutableStateOf("korean") }
+    var appLanguage by remember { mutableStateOf("ko") }
+    var pageTurnDirection by remember { mutableStateOf("left") }
 
     LaunchedEffect(Unit) {
         val settings = DbManager.loadSettings()
@@ -82,6 +90,8 @@ fun DonggongMainApp() {
         listingMode = settings["listingMode"] ?: "scroll"
         cardViewMode = settings["cardViewMode"] ?: "detailed"
         defaultLanguage = settings["defaultLanguage"] ?: "korean"
+        appLanguage = settings["appLanguage"] ?: "ko"
+        pageTurnDirection = settings["pageTurnDirection"] ?: "left"
         favorites = DbManager.loadFavorites()
     }
 
@@ -108,16 +118,25 @@ fun DonggongMainApp() {
     }
 
     DonggongTheme(themeMode = themeMode) {
+        CompositionLocalProvider(LocalAppLanguage provides appLanguage) {
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route ?: "home"
 
         val showBottomBar = currentRoute in listOf("home", "favorites", "history", "settings")
 
         val openReader: (Long, Int) -> Unit = { targetId, page ->
-            scope.launch {
-                DbManager.addRecentViewed(targetId)
-            }
             navController.navigate("reader/$targetId?page=$page")
+        }
+
+        val searchFromAnyScreen: (String) -> Unit = { tag ->
+            pendingSearch = tag
+            navController.navigate("home") {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
         }
 
         Scaffold(
@@ -149,10 +168,10 @@ fun DonggongMainApp() {
                             icon = {
                                 Icon(
                                     imageVector = if (currentRoute == "home") Icons.Rounded.Home else Icons.Outlined.Home,
-                                    contentDescription = "홈"
+                                    contentDescription = tr("홈", "Home")
                                 )
                             },
-                            label = { Text("홈", fontWeight = if (currentRoute == "home") FontWeight.Bold else FontWeight.Normal) },
+                            label = { Text(tr("홈", "Home"), fontWeight = if (currentRoute == "home") FontWeight.Bold else FontWeight.Normal) },
                             colors = navItemColors
                         )
                         NavigationBarItem(
@@ -169,10 +188,10 @@ fun DonggongMainApp() {
                             icon = {
                                 Icon(
                                     imageVector = if (currentRoute == "favorites") Icons.Rounded.Favorite else Icons.Outlined.FavoriteBorder,
-                                    contentDescription = "즐겨찾기"
+                                    contentDescription = tr("즐겨찾기", "Favorites")
                                 )
                             },
-                            label = { Text("즐겨찾기", fontWeight = if (currentRoute == "favorites") FontWeight.Bold else FontWeight.Normal) },
+                            label = { Text(tr("즐겨찾기", "Favorites"), fontWeight = if (currentRoute == "favorites") FontWeight.Bold else FontWeight.Normal) },
                             colors = navItemColors
                         )
                         NavigationBarItem(
@@ -189,10 +208,10 @@ fun DonggongMainApp() {
                             icon = {
                                 Icon(
                                     imageVector = if (currentRoute == "history") Icons.Rounded.History else Icons.Outlined.History,
-                                    contentDescription = "기록"
+                                    contentDescription = tr("기록", "History")
                                 )
                             },
-                            label = { Text("기록", fontWeight = if (currentRoute == "history") FontWeight.Bold else FontWeight.Normal) },
+                            label = { Text(tr("기록", "History"), fontWeight = if (currentRoute == "history") FontWeight.Bold else FontWeight.Normal) },
                             colors = navItemColors
                         )
                         NavigationBarItem(
@@ -209,10 +228,10 @@ fun DonggongMainApp() {
                             icon = {
                                 Icon(
                                     imageVector = if (currentRoute == "settings") Icons.Rounded.Settings else Icons.Outlined.Settings,
-                                    contentDescription = "설정"
+                                    contentDescription = tr("설정", "Settings")
                                 )
                             },
-                            label = { Text("설정", fontWeight = if (currentRoute == "settings") FontWeight.Bold else FontWeight.Normal) },
+                            label = { Text(tr("설정", "Settings"), fontWeight = if (currentRoute == "settings") FontWeight.Bold else FontWeight.Normal) },
                             colors = navItemColors
                         )
                     }
@@ -230,33 +249,16 @@ fun DonggongMainApp() {
                         favorites = favorites,
                         onFavoriteToggle = ::toggleFavorite,
                         onStartReader = openReader,
-                        onGalleryClick = { id ->
-                            navController.navigate("detail/$id")
-                        },
                         listingMode = listingMode,
                         cardViewMode = cardViewMode,
                         onCardViewModeChange = {
                             cardViewMode = it
                             updateSetting("cardViewMode", it)
                         },
-                        defaultLanguage = defaultLanguage
-                    )
-                }
-
-                composable(
-                    route = "detail/{galleryId}",
-                    arguments = listOf(navArgument("galleryId") { type = NavType.LongType })
-                ) { backStackEntry ->
-                    val id = backStackEntry.arguments?.getLong("galleryId") ?: 0L
-                    DetailScreen(
-                        galleryId = id,
-                        favorites = favorites,
-                        onFavoriteToggle = ::toggleFavorite,
-                        onBack = { navController.popBackStack() },
-                        onStartReader = openReader,
-                        onSearchTag = { tag ->
-                            navController.popBackStack("home", false)
-                        }
+                        defaultLanguage = defaultLanguage,
+                        pendingSearch = pendingSearch,
+                        onPendingSearchConsumed = { pendingSearch = null },
+                        state = homeState
                     )
                 }
 
@@ -277,6 +279,10 @@ fun DonggongMainApp() {
                         initialPage = page,
                         initialMode = readerMode,
                         initialDoublePageOrder = doublePageOrder,
+                        initialPageTurnDirection = pageTurnDirection,
+                        favorites = favorites,
+                        onFavoriteToggle = ::toggleFavorite,
+                        onSearchTag = searchFromAnyScreen,
                         onBack = { navController.popBackStack() }
                     )
                 }
@@ -285,16 +291,10 @@ fun DonggongMainApp() {
                     FavoritesScreen(
                         favorites = favorites,
                         onFavoriteToggle = ::toggleFavorite,
-                        onFavoritesImported = { imported ->
-                            favorites = imported
-                        },
                         onStartReader = openReader,
-                        onGalleryClick = { id ->
-                            navController.navigate("detail/$id")
-                        },
-                        onSearchTag = { tag ->
-                            navController.navigate("home")
-                        }
+                        onSearchTag = searchFromAnyScreen,
+                        listingMode = listingMode,
+                        cardViewMode = cardViewMode
                     )
                 }
 
@@ -303,9 +303,8 @@ fun DonggongMainApp() {
                         favorites = favorites,
                         onFavoriteToggle = ::toggleFavorite,
                         onStartReader = openReader,
-                        onSearchTag = { tag ->
-                            navController.navigate("home")
-                        }
+                        onSearchTag = searchFromAnyScreen,
+                        cardViewMode = cardViewMode
                     )
                 }
 
@@ -316,6 +315,11 @@ fun DonggongMainApp() {
                             themeMode = it
                             updateSetting("themeModeKey", it)
                         },
+                        appLanguage = appLanguage,
+                        onAppLanguageChange = {
+                            appLanguage = it
+                            updateSetting("appLanguage", it)
+                        },
                         readerMode = readerMode,
                         onReaderModeChange = {
                             readerMode = it
@@ -325,6 +329,11 @@ fun DonggongMainApp() {
                         onDoublePageOrderChange = {
                             doublePageOrder = it
                             updateSetting("doublePageOrder", it)
+                        },
+                        pageTurnDirection = pageTurnDirection,
+                        onPageTurnDirectionChange = {
+                            pageTurnDirection = it
+                            updateSetting("pageTurnDirection", it)
                         },
                         listingMode = listingMode,
                         onListingModeChange = {
@@ -347,10 +356,21 @@ fun DonggongMainApp() {
                         },
                         onResetData = {
                             favorites = Favorites()
-                        }
+                            themeMode = "dark"
+                            readerMode = "verticalPage"
+                            doublePageOrder = "japanese"
+                            pageTurnDirection = "left"
+                            listingMode = "scroll"
+                            cardViewMode = "detailed"
+                            defaultLanguage = "korean"
+                            appLanguage = "ko"
+                            homeState.clear()
+                        },
+                        onClearCache = { homeState.clear() }
                     )
                 }
             }
+        }
         }
     }
 }

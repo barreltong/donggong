@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.donggong.data.Favorites
 import com.example.donggong.data.Gallery
+import com.example.donggong.ui.theme.tr
 
 @Composable
 fun GalleryIdBadge(
@@ -60,6 +61,7 @@ fun GalleryIdBadge(
 ) {
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
+    val copiedMessage = tr("작품 ID가 복사되었습니다 ($galleryId)", "Copied gallery ID ($galleryId)")
 
     Surface(
         shape = CircleShape,
@@ -68,7 +70,7 @@ fun GalleryIdBadge(
         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
         modifier = modifier.clickable {
             clipboardManager.setText(AnnotatedString(galleryId.toString()))
-            Toast.makeText(context, "작품 ID가 복사되었습니다 ($galleryId)", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
         }
     ) {
         Row(
@@ -110,6 +112,7 @@ fun GalleryCard(
     )
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
+    val copiedMessage = tr("작품 ID가 복사되었습니다 (${gallery.id})", "Copied gallery ID (${gallery.id})")
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -163,7 +166,7 @@ fun GalleryCard(
                             .padding(5.dp)
                             .clickable {
                                 clipboardManager.setText(AnnotatedString(gallery.id.toString()))
-                                Toast.makeText(context, "작품 ID가 복사되었습니다 (${gallery.id})", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
                             }
                     ) {
                         Row(

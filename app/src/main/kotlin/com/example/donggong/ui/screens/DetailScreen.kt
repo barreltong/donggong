@@ -72,6 +72,7 @@ import com.example.donggong.data.DbManager
 import com.example.donggong.data.Favorites
 import com.example.donggong.data.Gallery
 import com.example.donggong.data.TagInfo
+import com.example.donggong.ui.theme.tr
 import com.example.donggong.ui.components.GalleryIdBadge
 import com.example.donggong.ui.components.HitomiImage
 import com.example.donggong.ui.components.TagChip
@@ -97,17 +98,17 @@ fun DetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("작품 상세", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) },
+                title = { Text(tr("작품 상세", "Gallery Details"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = tr("뒤로", "Back"))
                     }
                 },
                 actions = {
                     IconButton(onClick = { onFavoriteToggle("gallery", galleryId.toString(), null) }) {
                         Icon(
                             imageVector = if (isFav) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                            contentDescription = "Favorite",
+                            contentDescription = tr("즐겨찾기", "Favorite"),
                             tint = heartColor
                         )
                     }
@@ -180,7 +181,7 @@ fun DetailSheetContent(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                "작품 정보를 불러올 수 없습니다.",
+                tr("작품 정보를 불러올 수 없습니다.", "Unable to load gallery information."),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error
             )
@@ -189,7 +190,7 @@ fun DetailSheetContent(
         val g = gallery!!
         val clipboardManager = LocalClipboardManager.current
         val context = LocalContext.current
-
+        val copiedMessage = tr("작품 ID가 복사되었습니다 (${g.id})", "Gallery ID copied (${g.id})")
         LazyColumn(
             modifier = modifier
                 .fillMaxWidth()
@@ -321,7 +322,7 @@ fun DetailSheetContent(
                             .weight(1f)
                             .clickable {
                                 clipboardManager.setText(AnnotatedString(g.id.toString()))
-                                Toast.makeText(context, "작품 ID가 복사되었습니다 (${g.id})", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
                             }
                     ) {
                         Row(
@@ -345,7 +346,7 @@ fun DetailSheetContent(
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
                                 Text(
-                                    text = "작품 ID (탭하여 복사)",
+                                    text = tr("작품 ID (탭하여 복사)", "Gallery ID (tap to copy)"),
                                     fontSize = 10.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -387,7 +388,7 @@ fun DetailSheetContent(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Column {
                                     Text(
-                                        text = "언어",
+                                        text = tr("언어", "Language"),
                                         fontSize = 10.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -435,7 +436,7 @@ fun DetailSheetContent(
                             modifier = Modifier.size(15.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("열람 시작", fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                        Text(tr("열람 시작", "Start reading"), fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                     }
 
                     FilledTonalButton(
@@ -456,7 +457,7 @@ fun DetailSheetContent(
                             modifier = Modifier.size(15.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(if (isFav) "즐겨찾기 완료" else "즐겨찾기", fontSize = 12.5.sp)
+                        Text(tr("즐겨찾기 완료", "Added to favorites").takeIf { isFav } ?: tr("즐겨찾기", "Add to favorites"), fontSize = 12.5.sp)
                     }
                 }
             }
@@ -465,7 +466,7 @@ fun DetailSheetContent(
             if (g.artists.isNotEmpty()) {
                 item {
                     DetailTagGroup(
-                        title = "작가",
+                        title = tr("작가", "Artists"),
                         items = g.artists.map { "artist:$it" },
                         favorites = favorites,
                         onSearchTag = onSearchTag,
@@ -478,7 +479,7 @@ fun DetailSheetContent(
             if (g.groups.isNotEmpty()) {
                 item {
                     DetailTagGroup(
-                        title = "그룹 / 서클",
+                        title = tr("그룹 / 서클", "Groups / Circles"),
                         items = g.groups.map { "group:$it" },
                         favorites = favorites,
                         onSearchTag = onSearchTag,
@@ -491,7 +492,7 @@ fun DetailSheetContent(
             if (g.parodys.isNotEmpty()) {
                 item {
                     DetailTagGroup(
-                        title = "시리즈 / 원작",
+                        title = tr("시리즈 / 원작", "Series / Original Work"),
                         items = g.parodys.map { "series:$it" },
                         favorites = favorites,
                         onSearchTag = onSearchTag,
@@ -504,7 +505,7 @@ fun DetailSheetContent(
             if (g.characters.isNotEmpty()) {
                 item {
                     DetailTagGroup(
-                        title = "캐릭터",
+                        title = tr("캐릭터", "Characters"),
                         items = g.characters.map { "character:$it" },
                         favorites = favorites,
                         onSearchTag = onSearchTag,
@@ -517,7 +518,7 @@ fun DetailSheetContent(
             if (g.tags.isNotEmpty()) {
                 item {
                     DetailTagGroup(
-                        title = "태그 목록",
+                        title = tr("태그 목록", "Tags"),
                         items = g.tags,
                         favorites = favorites,
                         onSearchTag = onSearchTag,
@@ -530,7 +531,7 @@ fun DetailSheetContent(
             if (g.images.isNotEmpty()) {
                 item {
                     Text(
-                        text = "전체 페이지 미리보기 (${g.images.size}p)",
+                        text = tr("전체 페이지 미리보기 (${g.images.size}p)", "All page previews (${g.images.size}p)"),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -562,7 +563,7 @@ fun DetailSheetContent(
                                     HitomiImage(
                                         url = img.url,
                                         imageHash = img.hash,
-                                        contentDescription = "Page ${index + 1}",
+                                        contentDescription = tr("페이지 ${index + 1}", "Page ${index + 1}"),
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize()
                                     )

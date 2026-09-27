@@ -4,6 +4,8 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import coil.annotation.ExperimentalCoilApi
+import coil.imageLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
@@ -30,12 +32,12 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, "donggong.db"
 
 object DbManager {
     private var helper: DatabaseHelper? = null
+    private var appContext: Context? = null
     private val json = Json { ignoreUnknownKeys = true }
 
     fun init(context: Context) {
-        if (helper == null) {
-            helper = DatabaseHelper(context.applicationContext)
-        }
+        appContext = context.applicationContext
+        if (helper == null) helper = DatabaseHelper(context.applicationContext)
     }
 
     private val db: SQLiteDatabase
@@ -245,10 +247,29 @@ object DbManager {
     }
 
     suspend fun resetAllData() = withContext(Dispatchers.IO) {
-        db.delete("favorites", null, null)
-        db.delete("settings", null, null)
-        db.delete("recent_viewed", null, null)
+        db.beginTransaction()
+        try {
+            db.delete("favorites", null, null)
+            db.delete("settings", null, null)
+            db.delete("recent_viewed", null, null)
+            db.delete("gallery_cache", null, null)
+            db.delete("recent_searches", null, null)
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+        clearDiskCache()
+    }
+
+    suspend fun clearCache() = withContext(Dispatchers.IO) {
         db.delete("gallery_cache", null, null)
-        db.delete("recent_searches", null, null)
+        clearDiskCache()
+    }
+
+    @OptIn(ExperimentalCoilApi::class)
+    private fun clearDiskCache() {
+        val context = appContext ?: return
+        context.imageLoader.memoryCache?.clear()
+        context.imageLoader.diskCache?.clear()
     }
 }

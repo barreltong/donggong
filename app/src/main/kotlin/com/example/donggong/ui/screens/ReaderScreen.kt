@@ -30,10 +30,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.AutoStories
-import androidx.compose.material.icons.rounded.FitScreen
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.SwapHoriz
+import androidx.compose.material.icons.rounded.Swipe
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -44,6 +50,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,14 +65,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.donggong.core.DonggongBridge
 import com.example.donggong.data.DbManager
 import com.example.donggong.data.Gallery
+import com.example.donggong.data.Favorites
 import com.example.donggong.ui.components.HitomiImage
 import com.example.donggong.ui.components.ZoomableBox
+import com.example.donggong.ui.theme.tr
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,6 +85,10 @@ fun ReaderScreen(
     initialPage: Int = 0,
     initialMode: String = "verticalPage",
     initialDoublePageOrder: String = "japanese",
+    initialPageTurnDirection: String = "left",
+    favorites: Favorites,
+    onFavoriteToggle: (String, String, Gallery?) -> Unit,
+    onSearchTag: (String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -84,7 +98,11 @@ fun ReaderScreen(
 
     var readerMode by remember { mutableStateOf(initialMode) }
     var doublePageOrder by remember { mutableStateOf(initialDoublePageOrder) }
-    var currentPage by remember { mutableIntStateOf(initialPage) }
+    var currentPage by remember { mutableIntStateOf(initialPage.coerceAtLeast(0)) }
+    var pageTurnDirection by remember { mutableStateOf(initialPageTurnDirection) }
+    var showPageJump by remember { mutableStateOf(false) }
+    var pageInput by remember { mutableStateOf("") }
+    var showDetails by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
 
@@ -101,16 +119,44 @@ fun ReaderScreen(
 
     val images = gallery?.images ?: emptyList()
     val totalPages = images.size
+    val verticalPagerState = rememberPagerState(
+        initialPage = 0,
+        pageCount = { maxOf(1, totalPages) }
+    )
+    val horizontalPagerState = rememberPagerState(
+        initialPage = 0,
+        pageCount = { maxOf(1, totalPages) }
+    )
+    val doublePagerState = rememberPagerState(
+        initialPage = 0,
+        pageCount = { maxOf(1, (totalPages + 1) / 2) }
+    )
+    val horizontalReverse = pageTurnDirection == "right"
 
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialPage)
+    val listState = rememberLazyListState()
 
-    // Sync currentPage for webtoon
-    LaunchedEffect(listState, readerMode) {
-        if (readerMode == "webtoon") {
-            snapshotFlow { listState.firstVisibleItemIndex }
-                .collect { currentPage = it }
+    LaunchedEffect(readerMode, totalPages) {
+        if (totalPages == 0) return@LaunchedEffect
+        val page = currentPage.coerceIn(0, totalPages - 1)
+        when (readerMode) {
+            "webtoon" -> listState.scrollToItem(page)
+            "verticalPage" -> verticalPagerState.scrollToPage(page)
+            "horizontalPage" -> horizontalPagerState.scrollToPage(page)
+            "doublePage" -> doublePagerState.scrollToPage(page / 2)
         }
     }
+
+    LaunchedEffect(readerMode, totalPages) {
+        if (totalPages == 0) return@LaunchedEffect
+        val pageFlow = when (readerMode) {
+            "webtoon" -> snapshotFlow { listState.firstVisibleItemIndex }
+            "verticalPage" -> snapshotFlow { verticalPagerState.currentPage }
+            "horizontalPage" -> snapshotFlow { horizontalPagerState.currentPage }
+            else -> snapshotFlow { doublePagerState.currentPage * 2 }
+        }
+        pageFlow.collect { page -> currentPage = page.coerceIn(0, totalPages - 1) }
+    }
+
 
     Box(
         modifier = modifier
@@ -133,7 +179,7 @@ fun ReaderScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "이미지를 불러올 수 없습니다.",
+                    tr("이미지를 불러올 수 없습니다.", "Unable to load images."),
                     color = Color.White,
                     style = MaterialTheme.typography.bodyLarge
                 )
@@ -169,7 +215,7 @@ fun ReaderScreen(
                                     HitomiImage(
                                         url = img.url,
                                         imageHash = img.hash,
-                                        contentDescription = "Page ${index + 1}",
+                                        contentDescription = tr("페이지 ${index + 1}", "Page ${index + 1}"),
                                         contentScale = ContentScale.FillWidth,
                                         modifier = Modifier.fillMaxSize()
                                     )
@@ -179,27 +225,13 @@ fun ReaderScreen(
                     }
 
                     "verticalPage" -> {
-                        val pagerState = rememberPagerState(
-                            initialPage = currentPage.coerceIn(0, maxOf(0, totalPages - 1)),
-                            pageCount = { totalPages }
-                        )
-                        LaunchedEffect(pagerState) {
-                            snapshotFlow { pagerState.currentPage }.collect { currentPage = it }
-                        }
-
-                        VerticalPager(
-                            state = pagerState,
-                            modifier = Modifier.fillMaxSize()
-                        ) { page ->
+                        VerticalPager(state = verticalPagerState, modifier = Modifier.fillMaxSize()) { page ->
                             val img = images[page]
-                            ZoomableBox(
-                                modifier = Modifier.fillMaxSize(),
-                                resetKey = page
-                            ) {
+                            ZoomableBox(modifier = Modifier.fillMaxSize(), resetKey = page) {
                                 HitomiImage(
                                     url = img.url,
                                     imageHash = img.hash,
-                                    contentDescription = "Page ${page + 1}",
+                                    contentDescription = tr("페이지 ${page + 1}", "Page ${page + 1}"),
                                     contentScale = ContentScale.Fit,
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -208,27 +240,17 @@ fun ReaderScreen(
                     }
 
                     "horizontalPage" -> {
-                        val pagerState = rememberPagerState(
-                            initialPage = currentPage.coerceIn(0, maxOf(0, totalPages - 1)),
-                            pageCount = { totalPages }
-                        )
-                        LaunchedEffect(pagerState) {
-                            snapshotFlow { pagerState.currentPage }.collect { currentPage = it }
-                        }
-
                         HorizontalPager(
-                            state = pagerState,
+                            state = horizontalPagerState,
+                            reverseLayout = horizontalReverse,
                             modifier = Modifier.fillMaxSize()
                         ) { page ->
                             val img = images[page]
-                            ZoomableBox(
-                                modifier = Modifier.fillMaxSize(),
-                                resetKey = page
-                            ) {
+                            ZoomableBox(modifier = Modifier.fillMaxSize(), resetKey = page) {
                                 HitomiImage(
                                     url = img.url,
                                     imageHash = img.hash,
-                                    contentDescription = "Page ${page + 1}",
+                                    contentDescription = tr("페이지 ${page + 1}", "Page ${page + 1}"),
                                     contentScale = ContentScale.Fit,
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -237,47 +259,31 @@ fun ReaderScreen(
                     }
 
                     "doublePage" -> {
-                        val doublePageCount = (totalPages + 1) / 2
-                        val pagerState = rememberPagerState(
-                            initialPage = (currentPage / 2).coerceIn(0, maxOf(0, doublePageCount - 1)),
-                            pageCount = { doublePageCount }
-                        )
-                        LaunchedEffect(pagerState) {
-                            snapshotFlow { pagerState.currentPage }.collect { currentPage = it * 2 }
-                        }
-
                         HorizontalPager(
-                            state = pagerState,
+                            state = doublePagerState,
+                            reverseLayout = horizontalReverse,
                             modifier = Modifier.fillMaxSize()
                         ) { pairIndex ->
                             val firstIndex = pairIndex * 2
                             val secondIndex = firstIndex + 1
-
                             val leftImg = if (doublePageOrder == "japanese") {
-                                if (secondIndex < totalPages) images[secondIndex] else null
+                                images.getOrNull(secondIndex)
                             } else {
-                                if (firstIndex < totalPages) images[firstIndex] else null
+                                images.getOrNull(firstIndex)
                             }
-
                             val rightImg = if (doublePageOrder == "japanese") {
-                                if (firstIndex < totalPages) images[firstIndex] else null
+                                images.getOrNull(firstIndex)
                             } else {
-                                if (secondIndex < totalPages) images[secondIndex] else null
+                                images.getOrNull(secondIndex)
                             }
-
-                            ZoomableBox(
-                                modifier = Modifier.fillMaxSize(),
-                                resetKey = pairIndex
-                            ) {
+                            ZoomableBox(modifier = Modifier.fillMaxSize(), resetKey = pairIndex) {
                                 Row(
                                     modifier = Modifier.fillMaxSize(),
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxSize(),
+                                        modifier = Modifier.weight(1f).fillMaxSize(),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         leftImg?.let {
@@ -291,9 +297,7 @@ fun ReaderScreen(
                                         }
                                     }
                                     Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxSize(),
+                                        modifier = Modifier.weight(1f).fillMaxSize(),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         rightImg?.let {
@@ -336,7 +340,7 @@ fun ReaderScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = tr("뒤로", "Back"),
                             tint = Color.White
                         )
                     }
@@ -351,13 +355,31 @@ fun ReaderScreen(
                             .weight(1f)
                             .padding(horizontal = 8.dp)
                     )
+                    val isFavorite = favorites.isFavorite("gallery", galleryId.toString())
+                    IconButton(onClick = { onFavoriteToggle("gallery", galleryId.toString(), gallery) }) {
+                        Icon(
+                            if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = tr("즐겨찾기", "Favorite"),
+                            tint = if (isFavorite) Color.Red else Color.White
+                        )
+                    }
+                    IconButton(onClick = { showDetails = true }) {
+                        Icon(Icons.Outlined.Info, contentDescription = tr("작품 정보", "Gallery details"), tint = Color.White)
+                    }
+                    if (readerMode != "webtoon") {
+                        IconButton(onClick = {
+                            pageTurnDirection = if (pageTurnDirection == "left") "right" else "left"
+                        }) {
+                            Icon(Icons.Rounded.Swipe, contentDescription = tr("페이지 넘김 방향: $pageTurnDirection", "Page turn direction: $pageTurnDirection"), tint = Color.White)
+                        }
+                    }
                     if (readerMode == "doublePage") {
                         IconButton(onClick = {
                             doublePageOrder = if (doublePageOrder == "japanese") "international" else "japanese"
                         }) {
                             Icon(
                                 Icons.Rounded.SwapHoriz,
-                                contentDescription = "Order: $doublePageOrder",
+                                contentDescription = tr("순서: $doublePageOrder", "Order: $doublePageOrder"),
                                 tint = if (doublePageOrder == "japanese") MaterialTheme.colorScheme.primary else Color.LightGray
                             )
                         }
@@ -389,7 +411,10 @@ fun ReaderScreen(
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.padding(bottom = 6.dp)
+                        modifier = Modifier.padding(bottom = 6.dp).clickable {
+                            pageInput = (currentPage + 1).toString()
+                            showPageJump = true
+                        }
                     ) {
                         Text(
                             text = "${currentPage + 1} / $totalPages",
@@ -400,14 +425,18 @@ fun ReaderScreen(
                         )
                     }
 
-                    // Interactive Slider
                     Slider(
                         value = currentPage.toFloat().coerceIn(0f, maxOf(0f, (totalPages - 1).toFloat())),
                         onValueChange = { target ->
-                            val targetIndex = target.toInt()
+                            val targetIndex = target.toInt().coerceIn(0, totalPages - 1)
                             currentPage = targetIndex
-                            if (readerMode == "webtoon") {
-                                scope.launch { listState.scrollToItem(targetIndex) }
+                            scope.launch {
+                                when (readerMode) {
+                                    "webtoon" -> listState.scrollToItem(targetIndex)
+                                    "verticalPage" -> verticalPagerState.animateScrollToPage(targetIndex)
+                                    "horizontalPage" -> horizontalPagerState.animateScrollToPage(targetIndex)
+                                    "doublePage" -> doublePagerState.animateScrollToPage(targetIndex / 2)
+                                }
                             }
                         },
                         valueRange = 0f..maxOf(0f, (totalPages - 1).toFloat()),
@@ -426,10 +455,10 @@ fun ReaderScreen(
                         modifier = Modifier.padding(top = 4.dp)
                     ) {
                         listOf(
-                            "webtoon" to "웹툰",
-                            "verticalPage" to "세로",
-                            "horizontalPage" to "가로",
-                            "doublePage" to "양면"
+                            "webtoon" to tr("웹툰", "Webtoon"),
+                            "verticalPage" to tr("세로", "Vertical"),
+                            "horizontalPage" to tr("가로", "Horizontal"),
+                            "doublePage" to tr("양면", "Double page")
                         ).forEach { (modeKey, modeName) ->
                             val selected = readerMode == modeKey
                             FilterChip(
@@ -449,6 +478,56 @@ fun ReaderScreen(
                     }
                 }
             }
+        }
+        if (showDetails) {
+            androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showDetails = false }) {
+                DetailSheetContent(
+                    galleryId = galleryId,
+                    favorites = favorites,
+                    onFavoriteToggle = onFavoriteToggle,
+                    onStartReader = { _, page ->
+                        showDetails = false
+                        currentPage = page.coerceIn(0, maxOf(0, totalPages - 1))
+                    },
+                    onSearchTag = { tag ->
+                        showDetails = false
+                        onSearchTag(tag)
+                    }
+                )
+            }
+        }
+        if (showPageJump) {
+            AlertDialog(
+                onDismissRequest = { showPageJump = false },
+                title = { Text(tr("페이지 이동", "Go to page")) },
+                text = {
+                    OutlinedTextField(
+                        value = pageInput,
+                        onValueChange = { pageInput = it.filter(Char::isDigit) },
+                        label = { Text(tr("페이지 번호 (1 ~ $totalPages)", "Page number (1-$totalPages)")) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        val page = pageInput.toIntOrNull()
+                        if (page != null && page in 1..totalPages) {
+                            scope.launch {
+                                when (readerMode) {
+                                    "webtoon" -> listState.scrollToItem(page - 1)
+                                    "verticalPage" -> verticalPagerState.scrollToPage(page - 1)
+                                    "horizontalPage" -> horizontalPagerState.scrollToPage(page - 1)
+                                    "doublePage" -> doublePagerState.scrollToPage((page - 1) / 2)
+                                }
+                                currentPage = page - 1
+                            }
+                            showPageJump = false
+                        }
+                    }) { Text(tr("이동", "Go")) }
+                },
+                dismissButton = { TextButton(onClick = { showPageJump = false }) { Text(tr("취소", "Cancel")) } }
+            )
         }
     }
 }

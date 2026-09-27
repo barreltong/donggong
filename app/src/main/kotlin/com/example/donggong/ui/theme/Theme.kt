@@ -53,6 +53,12 @@ private val DarkColorScheme = darkColorScheme(
     surfaceContainerHighest = Color(0xFF26262B)
 )
 
+private val OledColorScheme = DarkColorScheme.copy(
+    background = Color.Black,
+    surface = Color.Black,
+    surfaceContainerLowest = Color.Black
+)
+
 // True Monochrome Light Scheme (Crisp white with clean neutral tones)
 private val LightColorScheme = lightColorScheme(
     primary = Color(0xFF18181B),
@@ -190,7 +196,7 @@ fun DonggongTheme(
 ) {
     val darkTheme = when (themeMode) {
         "light" -> false
-        "dark" -> true
+        "dark", "oled" -> true
         else -> isSystemInDarkTheme()
     }
 
@@ -199,6 +205,7 @@ fun DonggongTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
+        themeMode == "oled" -> OledColorScheme
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }

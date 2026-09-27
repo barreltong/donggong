@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.donggong.ui.theme.tr
 
 @Composable
 fun PaginationBar(
@@ -50,12 +51,12 @@ fun PaginationBar(
     if (showJumpDialog) {
         AlertDialog(
             onDismissRequest = { showJumpDialog = false },
-            title = { Text("페이지 이동", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold) },
+            title = { Text(tr("페이지 이동", "Go to page"), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold) },
             text = {
                 OutlinedTextField(
                     value = targetPageInput,
                     onValueChange = { targetPageInput = it.filter { c -> c.isDigit() } },
-                    label = { Text("페이지 번호 (1 ~ $totalPages)", fontSize = 11.5.sp) },
+                    label = { Text(tr("페이지 번호 (1 ~ $totalPages)", "Page number (1-$totalPages)"), fontSize = 11.5.sp) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     shape = CircleShape,
@@ -73,7 +74,7 @@ fun PaginationBar(
                     },
                     shape = CircleShape
                 ) {
-                    Text("이동", fontSize = 12.sp)
+                    Text(tr("이동", "Go"), fontSize = 12.sp)
                 }
             },
             dismissButton = {
@@ -81,7 +82,7 @@ fun PaginationBar(
                     onClick = { showJumpDialog = false },
                     shape = CircleShape
                 ) {
-                    Text("취소", fontSize = 12.sp)
+                    Text(tr("취소", "Cancel"), fontSize = 12.sp)
                 }
             },
             shape = RoundedCornerShape(20.dp),

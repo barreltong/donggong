@@ -1,59 +1,25 @@
 package com.example.donggong.ui.screens
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
-import androidx.compose.material.icons.automirrored.rounded.MenuBook
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.DeleteForever
-import androidx.compose.material.icons.rounded.FileDownload
-import androidx.compose.material.icons.rounded.FileUpload
-import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.SwapHoriz
-import androidx.compose.material.icons.rounded.SwapVert
-import androidx.compose.material.icons.rounded.SystemUpdate
-import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,37 +30,34 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.donggong.data.AppUpdater
 import com.example.donggong.data.DbManager
-import com.example.donggong.data.DonggongJsonBackup
 import com.example.donggong.data.Favorites
+import com.example.donggong.data.FavoritesBackup
 import com.example.donggong.data.OtaRelease
-import kotlinx.coroutines.launch
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import com.example.donggong.ui.theme.tr
+import java.io.ByteArrayOutputStream
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     themeMode: String,
     onThemeModeChange: (String) -> Unit,
+    appLanguage: String,
+    onAppLanguageChange: (String) -> Unit,
     readerMode: String,
     onReaderModeChange: (String) -> Unit,
     doublePageOrder: String,
     onDoublePageOrderChange: (String) -> Unit,
+    pageTurnDirection: String,
+    onPageTurnDirectionChange: (String) -> Unit,
     listingMode: String,
     onListingModeChange: (String) -> Unit,
     cardViewMode: String,
@@ -104,662 +67,272 @@ fun SettingsScreen(
     favorites: Favorites,
     onFavoritesImported: (Favorites) -> Unit,
     onResetData: () -> Unit,
+    onClearCache: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
-
-    var isCheckingUpdate by remember { mutableStateOf(false) }
-    var availableRelease by remember { mutableStateOf<OtaRelease?>(null) }
-    var downloadProgress by remember { mutableFloatStateOf(0f) }
-    var isDownloading by remember { mutableStateOf(false) }
-    var downloadedApk by remember { mutableStateOf<File?>(null) }
     var showResetDialog by remember { mutableStateOf(false) }
-    var showImportDialog by remember { mutableStateOf(false) }
-    var importJsonText by remember { mutableStateOf("") }
-
-    // Dropdown states
-    var themeMenuExpanded by remember { mutableStateOf(false) }
-    var cardViewMenuExpanded by remember { mutableStateOf(false) }
-    var listingMenuExpanded by remember { mutableStateOf(false) }
-    var languageMenuExpanded by remember { mutableStateOf(false) }
-    var readerMenuExpanded by remember { mutableStateOf(false) }
-    var doublePageMenuExpanded by remember { mutableStateOf(false) }
-
-    val currentVersion = "2.3.0"
-
-    fun exportFavoritesJson() {
-        val backup = DonggongJsonBackup(
-            favoriteId = favorites.galleries.toList(),
-            favoriteArtist = favorites.artists.toList(),
-            favoriteTag = favorites.tags.toList(),
-            favoriteLanguage = favorites.languages.toList(),
-            favoriteGroup = favorites.groups.toList(),
-            favoriteParody = favorites.parodys.toList(),
-            favoriteCharacter = favorites.characters.toList()
-        )
-        val exported = json.encodeToString(backup)
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("donggong_favorites", exported))
-        Toast.makeText(context, "즐겨찾기 JSON이 클립보드에 복사되었습니다.", Toast.LENGTH_SHORT).show()
+    var exportPayload by remember { mutableStateOf("") }
+    var availableRelease by remember { mutableStateOf<OtaRelease?>(null) }
+    var downloadedApk by remember { mutableStateOf<File?>(null) }
+    var checkingUpdate by remember { mutableStateOf(false) }
+    var downloading by remember { mutableStateOf(false) }
+    var progress by remember { mutableFloatStateOf(0f) }
+    val version = remember(context) { AppUpdater.currentVersion(context) }
+    val savedMessage = tr("백업 파일이 저장되었습니다.", "Backup file saved.")
+    val exportError = tr("내보내기에 실패했습니다.", "Export failed.")
+    val importError = tr("지원하지 않거나 손상된 백업 파일입니다.", "Unsupported or corrupted backup file.")
+    val importSuccess = tr("즐겨찾기를 가져왔습니다.", "Favorites imported.")
+    val cacheSuccess = tr("캐시가 삭제되었습니다.", "Cache cleared.")
+    val resetSuccess = tr("데이터가 초기화되었습니다.", "Data reset complete.")
+    val updateError = tr("업데이트를 확인하거나 다운로드할 수 없습니다.", "Could not check or download the update.")
+    val upToDate = tr("최신 버전입니다.", "You are on the latest version.")
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
+        if (uri != null) scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { output ->
+                        output.write(exportPayload.toByteArray(Charsets.UTF_8))
+                        output.flush()
+                    } ?: error("Cannot open backup destination")
+                }
+                Toast.makeText(context, savedMessage, Toast.LENGTH_SHORT).show()
+            } catch (_: Exception) {
+                Toast.makeText(context, exportError, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
-
-    fun parseAndImportJson(rawJson: String) {
-        try {
-            val parsed = json.parseToJsonElement(rawJson).jsonObject
-            val newFavs = if (parsed.containsKey("favoriteId")) {
-                DonggongJsonBackup(
-                    favoriteId = parsed["favoriteId"]?.jsonArray?.mapNotNull { it.jsonPrimitive.content.toLongOrNull() } ?: emptyList(),
-                    favoriteArtist = parsed["favoriteArtist"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
-                    favoriteTag = parsed["favoriteTag"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
-                    favoriteLanguage = parsed["favoriteLanguage"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
-                    favoriteGroup = parsed["favoriteGroup"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
-                    favoriteParody = parsed["favoriteParody"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList(),
-                    favoriteCharacter = parsed["favoriteCharacter"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
-                ).toFavorites()
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) scope.launch {
+            val imported = withContext(Dispatchers.IO) {
+                try {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        val bytes = ByteArrayOutputStream()
+                        val buffer = ByteArray(8192)
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            if (bytes.size() + count > 8 * 1024 * 1024) return@withContext null
+                            bytes.write(buffer, 0, count)
+                        }
+                        FavoritesBackup.decode(bytes.toString(Charsets.UTF_8.name()))
+                    }
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            if (imported == null) {
+                Toast.makeText(context, importError, Toast.LENGTH_SHORT).show()
             } else {
-                val galleries = parsed["favorites"]?.jsonArray?.mapNotNull { it.jsonPrimitive.content.toLongOrNull() }?.toSet() ?: emptySet()
-                Favorites(galleries = galleries)
+                try {
+                    DbManager.importFavorites(imported)
+                    onFavoritesImported(imported)
+                    Toast.makeText(context, importSuccess, Toast.LENGTH_SHORT).show()
+                } catch (_: Exception) {
+                    Toast.makeText(context, importError, Toast.LENGTH_SHORT).show()
+                }
             }
-            scope.launch {
-                DbManager.importFavorites(newFavs)
-                onFavoritesImported(newFavs)
-                showImportDialog = false
-                Toast.makeText(context, "즐겨찾기 ${newFavs.galleries.size}건을 가져왔습니다.", Toast.LENGTH_SHORT).show()
-            }
-        } catch (_: Exception) {
-            Toast.makeText(context, "올바른 JSON 형식이 아닙니다.", Toast.LENGTH_SHORT).show()
         }
     }
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 12.dp)
-            .verticalScroll(rememberScrollState()),
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "설정",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp)
-        )
-            // Section 1: Display & Theme
-            SettingsGroupCard(title = "화면 및 테마") {
-                Box {
-                    SettingsDropdownItem(
-                        icon = Icons.Rounded.DarkMode,
-                        title = "테마 모드",
-                        currentValue = when (themeMode) {
-                            "dark" -> "다크 모드"
-                            "light" -> "라이트 모드"
-                            else -> "시스템 설정"
-                        },
-                        onClick = { themeMenuExpanded = true }
-                    )
-                    DropdownMenu(
-                        expanded = themeMenuExpanded,
-                        onDismissRequest = { themeMenuExpanded = false },
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        DropdownOption("시스템 설정", themeMode == "system") {
-                            onThemeModeChange("system")
-                            themeMenuExpanded = false
-                        }
-                        DropdownOption("다크 모드", themeMode == "dark") {
-                            onThemeModeChange("dark")
-                            themeMenuExpanded = false
-                        }
-                        DropdownOption("라이트 모드", themeMode == "light") {
-                            onThemeModeChange("light")
-                            themeMenuExpanded = false
-                        }
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-
-                Box {
-                    SettingsDropdownItem(
-                        icon = Icons.Rounded.ViewAgenda,
-                        title = "카드 표시 모드",
-                        currentValue = when (cardViewMode) {
-                            "detailed" -> "상세 보기 (태그/작가)"
-                            "compact" -> "간단히 보기"
-                            else -> "그리드 보기 (격자)"
-                        },
-                        onClick = { cardViewMenuExpanded = true }
-                    )
-                    DropdownMenu(
-                        expanded = cardViewMenuExpanded,
-                        onDismissRequest = { cardViewMenuExpanded = false },
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        DropdownOption("상세 보기 (태그/작가)", cardViewMode == "detailed") {
-                            onCardViewModeChange("detailed")
-                            cardViewMenuExpanded = false
-                        }
-                        DropdownOption("간단히 보기", cardViewMode == "compact") {
-                            onCardViewModeChange("compact")
-                            cardViewMenuExpanded = false
-                        }
-                        DropdownOption("그리드 보기 (격자)", cardViewMode == "grid") {
-                            onCardViewModeChange("grid")
-                            cardViewMenuExpanded = false
-                        }
-                    }
-                }
-            }
-
-            // Section 2: Navigation & Reader
-            SettingsGroupCard(title = "탐색 및 리더 설정") {
-                Box {
-                    SettingsDropdownItem(
-                        icon = Icons.Rounded.SwapVert,
-                        title = "목록 스크롤 방식",
-                        currentValue = if (listingMode == "pagination") "페이지네이션 (하단 바)" else "무한 스크롤",
-                        onClick = { listingMenuExpanded = true }
-                    )
-                    DropdownMenu(
-                        expanded = listingMenuExpanded,
-                        onDismissRequest = { listingMenuExpanded = false },
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        DropdownOption("페이지네이션 (하단 바)", listingMode == "pagination") {
-                            onListingModeChange("pagination")
-                            listingMenuExpanded = false
-                        }
-                        DropdownOption("무한 스크롤", listingMode != "pagination") {
-                            onListingModeChange("scroll")
-                            listingMenuExpanded = false
-                        }
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-
-                Box {
-                    SettingsDropdownItem(
-                        icon = Icons.Rounded.Language,
-                        title = "기본 언어 필터",
-                        currentValue = when (defaultLanguage) {
-                            "korean" -> "한국어 (korean)"
-                            "all" -> "모든 언어 (all)"
-                            "japanese" -> "일본어 (japanese)"
-                            "english" -> "영어 (english)"
-                            else -> defaultLanguage
-                        },
-                        onClick = { languageMenuExpanded = true }
-                    )
-                    DropdownMenu(
-                        expanded = languageMenuExpanded,
-                        onDismissRequest = { languageMenuExpanded = false },
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        DropdownOption("한국어 (korean)", defaultLanguage == "korean") {
-                            onDefaultLanguageChange("korean")
-                            languageMenuExpanded = false
-                        }
-                        DropdownOption("모든 언어 (all)", defaultLanguage == "all") {
-                            onDefaultLanguageChange("all")
-                            languageMenuExpanded = false
-                        }
-                        DropdownOption("일본어 (japanese)", defaultLanguage == "japanese") {
-                            onDefaultLanguageChange("japanese")
-                            languageMenuExpanded = false
-                        }
-                        DropdownOption("영어 (english)", defaultLanguage == "english") {
-                            onDefaultLanguageChange("english")
-                            languageMenuExpanded = false
-                        }
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-
-                Box {
-                    SettingsDropdownItem(
-                        icon = Icons.AutoMirrored.Rounded.MenuBook,
-                        title = "기본 리더 모드",
-                        currentValue = when (readerMode) {
-                            "webtoon" -> "웹툰 모드 (세로 연속)"
-                            "verticalPage" -> "세로 페이지 (스와이프)"
-                            "horizontalPage" -> "가로 페이지 (스와이프)"
-                            else -> "두 쪽 보기 (태블릿/가로)"
-                        },
-                        onClick = { readerMenuExpanded = true }
-                    )
-                    DropdownMenu(
-                        expanded = readerMenuExpanded,
-                        onDismissRequest = { readerMenuExpanded = false },
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        DropdownOption("웹툰 모드 (세로 연속)", readerMode == "webtoon") {
-                            onReaderModeChange("webtoon")
-                            readerMenuExpanded = false
-                        }
-                        DropdownOption("세로 페이지 (스와이프)", readerMode == "verticalPage") {
-                            onReaderModeChange("verticalPage")
-                            readerMenuExpanded = false
-                        }
-                        DropdownOption("가로 페이지 (스와이프)", readerMode == "horizontalPage") {
-                            onReaderModeChange("horizontalPage")
-                            readerMenuExpanded = false
-                        }
-                        DropdownOption("두 쪽 보기 (태블릿/가로)", readerMode == "doublePage") {
-                            onReaderModeChange("doublePage")
-                            readerMenuExpanded = false
-                        }
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-
-                Box {
-                    SettingsDropdownItem(
-                        icon = Icons.Rounded.SwapHoriz,
-                        title = "두 쪽 보기 순서",
-                        currentValue = if (doublePageOrder == "japanese") "우 → 좌 (일본식 만화)" else "좌 → 우 (한국/서양식)",
-                        onClick = { doublePageMenuExpanded = true }
-                    )
-                    DropdownMenu(
-                        expanded = doublePageMenuExpanded,
-                        onDismissRequest = { doublePageMenuExpanded = false },
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        DropdownOption("우 → 좌 (일본식 만화)", doublePageOrder == "japanese") {
-                            onDoublePageOrderChange("japanese")
-                            doublePageMenuExpanded = false
-                        }
-                        DropdownOption("좌 → 우 (한국/서양식)", doublePageOrder != "japanese") {
-                            onDoublePageOrderChange("korean")
-                            doublePageMenuExpanded = false
-                        }
-                    }
-                }
-            }
-
-            // Section 3: App Update & Info
-            SettingsGroupCard(title = "앱 정보 및 업데이트") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(34.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Rounded.SystemUpdate,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "동공 (Donggong)",
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        if (isDownloading) {
-                            Column(modifier = Modifier.padding(top = 4.dp)) {
-                                LinearProgressIndicator(
-                                    progress = { downloadProgress },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                Spacer(modifier = Modifier.height(3.dp))
-                                Text(
-                                    text = "${(downloadProgress * 100).toInt()}% 다운로드 중...",
-                                    fontSize = 11.5.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        } else if (availableRelease != null) {
-                            Text(
-                                text = "새 버전 v${availableRelease?.version} 사용 가능 (현재: v$currentVersion)",
-                                fontSize = 11.5.sp,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        } else {
-                            Text(
-                                text = "현재 버전 v$currentVersion",
-                                fontSize = 11.5.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    if (isCheckingUpdate) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                    } else if (downloadedApk != null) {
-                        Button(
-                            onClick = { AppUpdater.installApk(context, downloadedApk!!) },
-                            shape = CircleShape,
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Text("설치", fontSize = 12.sp)
-                        }
-                    } else if (availableRelease != null) {
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    isDownloading = true
-                                    downloadedApk = AppUpdater.downloadRelease(
-                                        context = context,
-                                        release = availableRelease!!,
-                                        onProgress = { downloadProgress = it }
-                                    )
-                                    isDownloading = false
-                                }
-                            },
-                            shape = CircleShape,
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Text("다운로드", fontSize = 12.sp)
-                        }
-                    } else {
-                        FilledTonalButton(
-                            onClick = {
-                                scope.launch {
-                                    isCheckingUpdate = true
-                                    val rel = AppUpdater.fetchLatestRelease()
-                                    if (rel != null && AppUpdater.isUpdateAvailable(currentVersion, rel.version)) {
-                                        availableRelease = rel
-                                    } else {
-                                        availableRelease = null
-                                        Toast.makeText(context, "최신 버전입니다.", Toast.LENGTH_SHORT).show()
-                                    }
-                                    isCheckingUpdate = false
-                                }
-                            },
-                            shape = CircleShape,
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Text("업데이트 확인", fontSize = 12.sp)
-                        }
-                    }
-                }
-            }
-
-            // Section 4: Data Management (Favorites Export / Import / Reset)
-            SettingsGroupCard(title = "데이터 및 백업 관리") {
-                SettingsActionItem(
-                    icon = Icons.Rounded.FileDownload,
-                    iconTint = MaterialTheme.colorScheme.primary,
-                    iconBg = MaterialTheme.colorScheme.primaryContainer,
-                    title = "즐겨찾기 내보내기",
-                    subtitle = "즐겨찾기 데이터(${favorites.galleries.size}작품, ${favorites.allChips.size}태그)를 클립보드로 복사합니다",
-                    onClick = { exportFavoritesJson() }
-                )
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-
-                SettingsActionItem(
-                    icon = Icons.Rounded.FileUpload,
-                    iconTint = MaterialTheme.colorScheme.tertiary,
-                    iconBg = MaterialTheme.colorScheme.tertiaryContainer,
-                    title = "즐겨찾기 가져오기",
-                    subtitle = "Donggong 또는 Pupil 백업 JSON을 입력하여 복원합니다",
-                    onClick = { showImportDialog = true }
-                )
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-
-                SettingsActionItem(
-                    icon = Icons.Rounded.DeleteForever,
-                    iconTint = MaterialTheme.colorScheme.error,
-                    iconBg = MaterialTheme.colorScheme.errorContainer,
-                    title = "데이터 및 캐시 초기화",
-                    subtitle = "즐겨찾기, 최근 본 기록, 검색 기록을 모두 영구 삭제합니다",
-                    onClick = { showResetDialog = true }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        if (showImportDialog) {
-            AlertDialog(
-                onDismissRequest = { showImportDialog = false },
-                title = { Text("즐겨찾기 가져오기", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
-                text = {
-                    Column {
-                        Text(
-                            "백업 JSON을 붙여넣으세요:",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        OutlinedTextField(
-                            value = importJsonText,
-                            onValueChange = { importJsonText = it },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            maxLines = 6
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = { parseAndImportJson(importJsonText) },
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("가져오기")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showImportDialog = false }) {
-                        Text("취소")
-                    }
-                },
-                shape = RoundedCornerShape(16.dp)
+        Text(tr("설정", "Settings"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        SettingsGroup(tr("화면 및 테마", "Appearance")) {
+            SettingChoice(
+                tr("앱 언어", "App language"), appLanguage,
+                listOf("ko" to "한국어", "en" to "English"), onAppLanguageChange
+            )
+            HorizontalDivider()
+            SettingChoice(
+                tr("테마 모드", "Theme"), themeMode,
+                listOf(
+                    "system" to tr("시스템 설정", "System"),
+                    "dark" to tr("다크 모드", "Dark"),
+                    "oled" to tr("OLED 다크", "OLED black"),
+                    "light" to tr("라이트 모드", "Light")
+                ), onThemeModeChange
+            )
+            HorizontalDivider()
+            SettingChoice(
+                tr("카드 표시 모드", "Card layout"), cardViewMode,
+                listOf(
+                    "detailed" to tr("상세 보기 (태그/작가)", "Detailed (tags and artists)"),
+                    "compact" to tr("간단히 보기", "Compact"),
+                    "grid" to tr("그리드 보기 (격자)", "Grid")
+                ), onCardViewModeChange
             )
         }
-
-        if (showResetDialog) {
-            AlertDialog(
-                onDismissRequest = { showResetDialog = false },
-                title = { Text("데이터 초기화", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
-                text = { Text("즐겨찾기, 최근 본 기록, 검색 기록이 모두 영구 삭제됩니다. 계속하시겠습니까?", fontSize = 13.sp) },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                DbManager.resetAllData()
-                                onResetData()
-                                showResetDialog = false
-                                Toast.makeText(context, "데이터가 초기화되었습니다.", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("초기화")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showResetDialog = false }) {
-                        Text("취소")
-                    }
-                },
-                shape = RoundedCornerShape(16.dp)
+        SettingsGroup(tr("탐색 및 리더 설정", "Browsing and reader")) {
+            SettingChoice(
+                tr("목록 스크롤 방식", "List navigation"), listingMode,
+                listOf("scroll" to tr("무한 스크롤", "Infinite scroll"), "pagination" to tr("페이지네이션 (하단 바)", "Pagination")),
+                onListingModeChange
             )
+            HorizontalDivider()
+            SettingChoice(
+                tr("기본 언어 필터", "Default gallery language"), defaultLanguage,
+                listOf(
+                    "korean" to tr("한국어 (korean)", "Korean"),
+                    "all" to tr("모든 언어 (all)", "All languages"),
+                    "japanese" to tr("일본어 (japanese)", "Japanese"),
+                    "english" to tr("영어 (english)", "English")
+                ), onDefaultLanguageChange
+            )
+            HorizontalDivider()
+            SettingChoice(
+                tr("기본 리더 모드", "Default reader mode"), readerMode,
+                listOf(
+                    "webtoon" to tr("웹툰 모드 (세로 연속)", "Webtoon (continuous scroll)"),
+                    "verticalPage" to tr("세로 페이지 (스와이프)", "Vertical pages"),
+                    "horizontalPage" to tr("가로 페이지 (스와이프)", "Horizontal pages"),
+                    "doublePage" to tr("두 쪽 보기 (태블릿/가로)", "Two-page spreads")
+                ), onReaderModeChange
+            )
+            HorizontalDivider()
+            SettingChoice(
+                tr("두 쪽 보기 순서", "Spread order"), doublePageOrder,
+                listOf("japanese" to tr("우 → 좌 (일본식 만화)", "Right to left"), "international" to tr("좌 → 우 (한국/서양식)", "Left to right")),
+                onDoublePageOrderChange
+            )
+            HorizontalDivider()
+            SettingChoice(
+                tr("페이지 넘김 방향", "Page turn direction"), pageTurnDirection,
+                listOf("left" to tr("왼쪽으로 넘김", "Turn left"), "right" to tr("오른쪽으로 넘김", "Turn right")),
+                onPageTurnDirectionChange
+            )
+        }
+        SettingsGroup(tr("앱 정보 및 업데이트", "App info and updates")) {
+            Text(
+                tr("동공 (Donggong) 현재 버전 v$version", "Donggong version $version"),
+                modifier = Modifier.padding(16.dp)
+            )
+            if (downloading) {
+                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                Text("${(progress * 100).toInt()}%", modifier = Modifier.padding(horizontal = 16.dp))
+            }
+            availableRelease?.let {
+                Text(
+                    tr("새 버전 v${it.version} 사용 가능", "Version ${it.version} available"),
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+            when {
+                checkingUpdate || downloading -> CircularProgressIndicator(modifier = Modifier.padding(16.dp))
+                downloadedApk != null -> Button(onClick = {
+                    try { AppUpdater.installApk(context, downloadedApk!!) }
+                    catch (_: Exception) { Toast.makeText(context, updateError, Toast.LENGTH_SHORT).show() }
+                }, modifier = Modifier.padding(12.dp)) { Text(tr("설치", "Install")) }
+                availableRelease != null -> Button(onClick = {
+                    val release = availableRelease ?: return@Button
+                    scope.launch {
+                        downloading = true
+                        try {
+                            downloadedApk = AppUpdater.downloadRelease(context, release) { progress = it }
+                        } catch (_: Exception) {
+                            Toast.makeText(context, updateError, Toast.LENGTH_SHORT).show()
+                        } finally { downloading = false }
+                    }
+                }, modifier = Modifier.padding(12.dp)) { Text(tr("다운로드", "Download")) }
+                else -> Button(onClick = {
+                    scope.launch {
+                        checkingUpdate = true
+                        try {
+                            val release = AppUpdater.fetchLatestRelease()
+                            availableRelease = release?.takeIf { AppUpdater.isUpdateAvailable(version, it.version) }
+                            if (availableRelease == null) Toast.makeText(context, upToDate, Toast.LENGTH_SHORT).show()
+                        } catch (_: Exception) {
+                            Toast.makeText(context, updateError, Toast.LENGTH_SHORT).show()
+                        } finally { checkingUpdate = false }
+                    }
+                }, modifier = Modifier.padding(12.dp)) { Text(tr("업데이트 확인", "Check for updates")) }
+            }
+        }
+        SettingsGroup(tr("데이터 및 백업 관리", "Data and backups")) {
+            SettingAction(tr("즐겨찾기 내보내기", "Export favorites"), tr("JSON 백업 파일로 저장", "Save a JSON backup")) {
+                exportPayload = FavoritesBackup.encode(favorites)
+                exportLauncher.launch("donggong_backup.json")
+            }
+            HorizontalDivider()
+            SettingAction(tr("즐겨찾기 가져오기", "Import favorites"), tr("Donggong 또는 Pupil JSON 백업 복원", "Restore a Donggong or Pupil JSON backup")) {
+                importLauncher.launch(arrayOf("application/json", "text/*"))
+            }
+            HorizontalDivider()
+            SettingAction(tr("캐시 삭제", "Clear cache"), tr("이미지와 갤러리 캐시만 삭제", "Clear only image and gallery caches")) {
+                scope.launch {
+                    try {
+                        DbManager.clearCache()
+                        onClearCache()
+                        Toast.makeText(context, cacheSuccess, Toast.LENGTH_SHORT).show()
+                    } catch (_: Exception) {
+                        Toast.makeText(context, updateError, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            HorizontalDivider()
+            SettingAction(tr("데이터 초기화", "Reset app data"), tr("즐겨찾기, 기록, 설정을 모두 삭제", "Remove favorites, history, and settings")) {
+                showResetDialog = true
+            }
         }
     }
 
-@Composable
-private fun DropdownOption(
-    title: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    DropdownMenuItem(
-        text = {
-            Text(
-                title,
-                fontSize = 13.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-            )
-        },
-        trailingIcon = if (isSelected) {
-            {
-                Icon(
-                    Icons.Rounded.Check,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        } else null,
-        onClick = onClick
-    )
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text(tr("데이터 초기화", "Reset app data")) },
+            text = { Text(tr("즐겨찾기, 최근 본 기록, 검색 기록이 모두 영구 삭제됩니다. 계속하시겠습니까?", "Favorites, history, and searches will be permanently deleted. Continue?")) },
+            confirmButton = {
+                Button(onClick = {
+                    scope.launch {
+                        try {
+                            DbManager.resetAllData()
+                            onResetData()
+                            showResetDialog = false
+                            Toast.makeText(context, resetSuccess, Toast.LENGTH_SHORT).show()
+                        } catch (_: Exception) {
+                            Toast.makeText(context, updateError, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }) { Text(tr("초기화", "Reset")) }
+            },
+            dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text(tr("취소", "Cancel")) } }
+        )
+    }
 }
 
 @Composable
-private fun SettingsGroupCard(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    Column {
-        Text(
-            text = title,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 6.dp, bottom = 6.dp)
-        )
-        Card(
-            shape = RoundedCornerShape(18.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-            border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                content()
+private fun SettingsGroup(title: String, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 8.dp))
+        Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = MaterialTheme.shapes.medium) {
+            Column(content = { content() })
+        }
+    }
+}
+
+@Composable
+private fun SettingChoice(title: String, value: String, options: List<Pair<String, String>>, onSelect: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    androidx.compose.foundation.layout.Box {
+        SettingAction(title, options.firstOrNull { it.first == value }?.second ?: value) { expanded = true }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (key, label) ->
+                DropdownMenuItem(text = { Text(label) }, onClick = {
+                    onSelect(key)
+                    expanded = false
+                })
             }
         }
     }
 }
 
 @Composable
-private fun SettingsDropdownItem(
-    icon: ImageVector,
-    title: String,
-    currentValue: String,
-    onClick: () -> Unit,
-    iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    iconBg: Color = MaterialTheme.colorScheme.surfaceContainerHigh
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Surface(
-            shape = CircleShape,
-            color = iconBg,
-            modifier = Modifier.size(34.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontSize = 13.5.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = currentValue,
-                fontSize = 11.5.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Icon(
-            Icons.AutoMirrored.Rounded.ArrowForwardIos,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            modifier = Modifier.size(12.dp)
-        )
-    }
-}
-
-@Composable
-private fun SettingsActionItem(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-    iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    iconBg: Color = MaterialTheme.colorScheme.surfaceContainerHigh
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Surface(
-            shape = CircleShape,
-            color = iconBg,
-            modifier = Modifier.size(34.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontSize = 13.5.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = subtitle,
-                fontSize = 11.5.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Icon(
-            Icons.AutoMirrored.Rounded.ArrowForwardIos,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            modifier = Modifier.size(12.dp)
-        )
+private fun SettingAction(title: String, subtitle: String, onClick: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp)) {
+        Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+        Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

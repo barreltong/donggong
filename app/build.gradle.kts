@@ -9,11 +9,22 @@ plugins {
 }
 
 val keystoreProperties = Properties()
+val releaseRequested = gradle.startParameter.taskNames.any { name ->
+    name.contains("Release", ignoreCase = true)
+}
+
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     FileInputStream(keystorePropertiesFile).use { stream ->
         keystoreProperties.load(stream)
     }
+}
+if (releaseRequested) {
+    require(keystorePropertiesFile.exists()) { "Release signing requires key.properties" }
+    listOf("keyAlias", "keyPassword", "storeFile", "storePassword").forEach { key ->
+        require(!keystoreProperties.getProperty(key).isNullOrBlank()) { "Missing release signing property: $key" }
+    }
+    require(rootProject.file(keystoreProperties.getProperty("storeFile")).isFile) { "Release keystore not found" }
 }
 
 tasks.register<Exec>("bindGoCore") {
@@ -29,8 +40,8 @@ android {
         applicationId = "com.example.donggong"
         minSdk = 26
         targetSdk = 35
-        versionCode = 240
-        versionName = "2.4.0"
+        versionCode = 250
+        versionName = "2.5.0"
 
         ndk {
             abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86_64"))
@@ -68,11 +79,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

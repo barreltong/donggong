@@ -54,6 +54,7 @@ fun HitomiImage(
     var givenUp by remember(url) { mutableStateOf(false) }
 
     val context = LocalContext.current
+    val retryLabel = com.example.donggong.ui.theme.tr("이미지 다시 불러오기", "Retry image")
     // The attempt is part of the request identity: ImageRequest compares by value and
     // AsyncImagePainter skips a request equal to the one it already ran, so without
     // this a retry would never be executed and the image would spin forever.
@@ -150,7 +151,7 @@ fun HitomiImage(
                             .then(
                                 if (givenUp) {
                                     Modifier.clickable(
-                                        onClickLabel = "이미지 다시 불러오기"
+                                        onClickLabel = retryLabel
                                     ) {
                                         givenUp = false
                                         didRefreshFromHash = false
@@ -167,7 +168,7 @@ fun HitomiImage(
                         if (givenUp) {
                             Icon(
                                 imageVector = Icons.Outlined.Refresh,
-                                contentDescription = "이미지를 불러오지 못했습니다. 눌러서 다시 시도",
+                                contentDescription = com.example.donggong.ui.theme.tr("이미지를 불러오지 못했습니다. 눌러서 다시 시도", "Image failed to load. Tap to retry"),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(24.dp)
                             )

@@ -1,14 +1,15 @@
 package com.example.donggong.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,6 +56,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.donggong.core.DonggongBridge
+import com.example.donggong.ui.theme.tr
 import com.example.donggong.data.Favorites
 import com.example.donggong.data.TagSuggestion
 import kotlinx.coroutines.delay
@@ -76,18 +78,13 @@ fun DonggongSearchBar(
     var suggestions by remember { mutableStateOf<List<TagSuggestion>>(emptyList()) }
     val focusManager = LocalFocusManager.current
 
-    LaunchedEffect(query) {
-        if (query.isNotBlank() && isFocused) {
+    LaunchedEffect(query, isFocused) {
+        suggestions = emptyList()
+        val lastToken = query.substringAfterLast(' ')
+        val clean = lastToken.substringAfter(':')
+        if (isFocused && clean.length >= 2 && lastToken.isNotEmpty()) {
             delay(250)
-            val lastWord = query.trim().split(Regex("\\s+")).lastOrNull() ?: ""
-            val clean = lastWord.substringAfter(':')
-            if (clean.length >= 2) {
-                suggestions = DonggongBridge.getTagSuggestions(clean)
-            } else {
-                suggestions = emptyList()
-            }
-        } else {
-            suggestions = emptyList()
+            suggestions = DonggongBridge.getTagSuggestions(clean)
         }
     }
 
@@ -128,7 +125,7 @@ fun DonggongSearchBar(
                     ) {
                         if (query.isEmpty()) {
                             Text(
-                                text = "태그, 작가, 작품 검색...",
+                                text = tr("태그, 작가, 작품 검색...", "Search tags, artists, galleries..."),
                                 fontSize = 13.5.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                                 maxLines = 1
@@ -148,7 +145,7 @@ fun DonggongSearchBar(
                             keyboardActions = KeyboardActions(
                                 onSearch = {
                                     focusManager.clearFocus()
-                                    onSearch(query)
+                                    onSearch(query.trim())
                                 }
                             ),
                             modifier = Modifier
@@ -185,7 +182,6 @@ fun DonggongSearchBar(
             }
         }
 
-        // Favorite tags quick filter row
         if (!isFocused && favorites.allChips.isNotEmpty()) {
             LazyRow(
                 modifier = Modifier
@@ -207,21 +203,23 @@ fun DonggongSearchBar(
         }
 
         // Recent Searches & Suggestions Popup Card
-        AnimatedVisibility(
-            visible = isFocused && (suggestions.isNotEmpty() || (query.isEmpty() && recentSearches.isNotEmpty())),
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+        if (isFocused && (suggestions.isNotEmpty() || (query.isEmpty() && recentSearches.isNotEmpty()))) {
+            val density = LocalDensity.current
+            val width = LocalConfiguration.current.screenWidthDp.dp - 16.dp
+            Popup(
+                alignment = Alignment.TopStart,
+                offset = with(density) { IntOffset(8.dp.roundToPx(), 56.dp.roundToPx()) },
+                onDismissRequest = { focusManager.clearFocus() },
+                properties = PopupProperties(focusable = false, dismissOnClickOutside = true)
             ) {
-                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                    border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                    modifier = Modifier.width(width)
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
                     // Recent Searches (Scrollable)
                     if (query.isEmpty() && recentSearches.isNotEmpty()) {
                         Row(
@@ -232,7 +230,7 @@ fun DonggongSearchBar(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "최근 검색",
+                                text = tr("최근 검색", "Recent searches"),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -246,7 +244,7 @@ fun DonggongSearchBar(
                                         .clickable { onClearAllRecentSearches() }
                                 ) {
                                     Text(
-                                        text = "모두 지우기",
+                                        text = tr("모두 지우기", "Clear all"),
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -311,7 +309,7 @@ fun DonggongSearchBar(
                     // Suggestions (Scrollable)
                     if (suggestions.isNotEmpty()) {
                         Text(
-                            text = "추천 검색어",
+                            text = tr("추천 검색어", "Suggestions"),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -332,16 +330,13 @@ fun DonggongSearchBar(
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(10.dp))
                                         .clickable {
-                                            focusManager.clearFocus()
-                                            val parts = query.trim().split(Regex("\\s+")).toMutableList()
+                                            val parts = query.trimEnd().split(Regex("\\s+")).toMutableList()
                                             if (parts.isNotEmpty()) {
-                                                parts[parts.lastIndex] = fullTag
+                                                parts[parts.lastIndex] = com.example.donggong.data.TagInfo.normalizeTagLabel(fullTag)
                                             } else {
                                                 parts.add(fullTag)
                                             }
-                                            val newQuery = parts.joinToString(" ") + " "
-                                            onQueryChange(newQuery)
-                                            onSearch(newQuery.trim())
+                                            onQueryChange(parts.joinToString(" ") + " ")
                                         }
                                         .padding(horizontal = 8.dp, vertical = 7.dp)
                                 ) {
@@ -382,6 +377,7 @@ fun DonggongSearchBar(
                         }
                     }
                 }
+            }
             }
         }
     }

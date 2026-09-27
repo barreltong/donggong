@@ -3,7 +3,6 @@ package com.example.donggong.data
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -15,6 +14,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 
 data class OtaRelease(
     val version: String,
@@ -70,37 +70,38 @@ object AppUpdater {
         onProgress: (Float) -> Unit
     ): File = withContext(Dispatchers.IO) {
         val targetFile = File(context.cacheDir, release.assetName)
+        val tempFile = File(context.cacheDir, "${release.assetName}.part")
         val request = Request.Builder()
             .url(release.downloadUrl)
             .header("User-Agent", "Donggong-App")
             .build()
 
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw Exception("HTTP ${response.code}")
-            val body = response.body ?: throw Exception("Empty response body")
-            val totalBytes = body.contentLength()
-
-            body.byteStream().use { input ->
-                FileOutputStream(targetFile).use { output ->
-                    val buffer = ByteArray(8192)
-                    var read: Int
-                    var current = 0L
-                    while (input.read(buffer).also { read = it } != -1) {
-                        output.write(buffer, 0, read)
-                        current += read
-                        if (totalBytes > 0) {
-                            onProgress(current.toFloat() / totalBytes)
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+                val body = response.body ?: throw IOException("Empty response body")
+                val totalBytes = body.contentLength()
+                var current = 0L
+                body.byteStream().use { input ->
+                    FileOutputStream(tempFile).use { output ->
+                        val buffer = ByteArray(8192)
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            output.write(buffer, 0, count)
+                            current += count
+                            if (totalBytes > 0) onProgress(current.toFloat() / totalBytes)
                         }
+                        output.fd.sync()
                     }
                 }
+                if (totalBytes >= 0 && current != totalBytes) throw IOException("Incomplete APK download")
             }
+            if (!tempFile.renameTo(targetFile)) throw IOException("Could not finalize APK download")
+            targetFile
+        } finally {
+            tempFile.delete()
         }
-        targetFile
-    }
-
-    fun canRequestPackageInstalls(context: Context): Boolean {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
-            context.packageManager.canRequestPackageInstalls()
     }
 
     fun installApk(context: Context, apkFile: File): Boolean {
@@ -121,6 +122,13 @@ object AppUpdater {
 
     fun isUpdateAvailable(currentVersion: String, latestVersion: String): Boolean {
         return compareVersions(latestVersion, currentVersion) > 0
+    }
+    fun currentVersion(context: Context): String {
+        return try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
+        } catch (_: Exception) {
+            "?"
+        }
     }
 
     private fun normalizeVersion(raw: String): String {
