@@ -35,21 +35,24 @@ import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Swipe
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -279,7 +282,8 @@ fun ReaderScreen(
                                         imageHash = img.hash,
                                         contentDescription = tr("페이지 ${index + 1}", "Page ${index + 1}"),
                                         contentScale = ContentScale.FillWidth,
-                                        modifier = Modifier.fillMaxSize()
+                                        modifier = Modifier.fillMaxSize(),
+                                        readerPlaceholder = true
                                     )
                                 }
                             }
@@ -295,7 +299,8 @@ fun ReaderScreen(
                                     imageHash = img.hash,
                                     contentDescription = tr("페이지 ${page + 1}", "Page ${page + 1}"),
                                     contentScale = ContentScale.Fit,
-                                    modifier = Modifier.fillMaxSize()
+                                    modifier = Modifier.fillMaxSize(),
+                                    readerPlaceholder = true
                                 )
                             }
                         }
@@ -314,7 +319,8 @@ fun ReaderScreen(
                                     imageHash = img.hash,
                                     contentDescription = tr("페이지 ${page + 1}", "Page ${page + 1}"),
                                     contentScale = ContentScale.Fit,
-                                    modifier = Modifier.fillMaxSize()
+                                    modifier = Modifier.fillMaxSize(),
+                                    readerPlaceholder = true
                                 )
                             }
                         }
@@ -354,7 +360,8 @@ fun ReaderScreen(
                                                 imageHash = it.hash,
                                                 contentDescription = null,
                                                 contentScale = ContentScale.Fit,
-                                                modifier = Modifier.fillMaxSize()
+                                                modifier = Modifier.fillMaxSize(),
+                                                readerPlaceholder = true
                                             )
                                         }
                                     }
@@ -368,7 +375,8 @@ fun ReaderScreen(
                                                 imageHash = it.hash,
                                                 contentDescription = null,
                                                 contentScale = ContentScale.Fit,
-                                                modifier = Modifier.fillMaxSize()
+                                                modifier = Modifier.fillMaxSize(),
+                                                readerPlaceholder = true
                                             )
                                         }
                                     }
@@ -542,7 +550,13 @@ fun ReaderScreen(
             }
         }
         if (showDetails) {
-            androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showDetails = false }) {
+            ModalBottomSheet(
+                onDismissRequest = { showDetails = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                dragHandle = { BottomSheetDefaults.DragHandle() },
+                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+            ) {
                 DetailSheetContent(
                     galleryId = galleryId,
                     favorites = favorites,
@@ -554,7 +568,8 @@ fun ReaderScreen(
                     onSearchTag = { tag ->
                         showDetails = false
                         onSearchTag(tag)
-                    }
+                    },
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }

@@ -257,7 +257,7 @@ fun FavoritesScreen(
         ModalBottomSheet(
             onDismissRequest = { selectedDetailId = null },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             dragHandle = { BottomSheetDefaults.DragHandle() },
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
         ) {

@@ -209,8 +209,8 @@ fun DonggongSearchBar(
             Popup(
                 alignment = Alignment.TopStart,
                 offset = with(density) { IntOffset(8.dp.roundToPx(), 56.dp.roundToPx()) },
-                onDismissRequest = { focusManager.clearFocus() },
-                properties = PopupProperties(focusable = false, dismissOnClickOutside = true)
+                onDismissRequest = {},
+                properties = PopupProperties(focusable = false, dismissOnClickOutside = false, dismissOnBackPress = false)
             ) {
                 Card(
                     shape = RoundedCornerShape(16.dp),

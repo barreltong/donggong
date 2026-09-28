@@ -222,10 +222,10 @@ fun HistoryScreen(
     selectedDetailId?.let { galleryId ->
         ModalBottomSheet(
             onDismissRequest = { selectedDetailId = null },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            dragHandle = { BottomSheetDefaults.DragHandle() }
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
         ) {
             DetailSheetContent(
                 galleryId = galleryId,

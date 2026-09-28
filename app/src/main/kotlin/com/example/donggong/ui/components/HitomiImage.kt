@@ -3,14 +3,18 @@ package com.example.donggong.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BrokenImage
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -44,7 +49,8 @@ fun HitomiImage(
     contentScale: ContentScale = ContentScale.Crop,
     alignment: Alignment = Alignment.Center,
     showLoadingPlaceholder: Boolean = true,
-    showErrorIndicator: Boolean = true
+    showErrorIndicator: Boolean = true,
+    readerPlaceholder: Boolean = false
 ) {
     var currentUrl by remember(url) { mutableStateOf(url) }
     var attempt by remember(url) { mutableIntStateOf(0) }
@@ -126,19 +132,25 @@ fun HitomiImage(
         }
     ) {
         when (painter.state) {
-            is AsyncImagePainter.State.Loading -> {
+            is AsyncImagePainter.State.Empty, is AsyncImagePainter.State.Loading -> {
                 if (showLoadingPlaceholder) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                            .background(if (readerPlaceholder) Color.Black else MaterialTheme.colorScheme.surfaceContainerHigh),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(if (readerPlaceholder) 32.dp else 20.dp),
+                                strokeWidth = 2.dp,
+                                color = if (readerPlaceholder) Color.White else MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                            )
+                            if (readerPlaceholder) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(com.example.donggong.ui.theme.tr("페이지 불러오는 중...", "Loading page..."), color = Color.White)
+                            }
+                        }
                     }
                 }
             }
