@@ -1,10 +1,10 @@
 package core
 
 type GalleryImage struct {
-	Hash   string `json:"hash"`
-	URL    string `json:"url"`
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
+	ImageHash string `json:"hash"`
+	URL       string `json:"url"`
+	Width     int    `json:"width"`
+	Height    int    `json:"height"`
 }
 
 type Gallery struct {

@@ -373,10 +373,10 @@ func (h *hitomiClient) GetReaderData(id int64) (*Gallery, error) {
 		height, _ := fMap["height"].(float64)
 		imgURL := buildImageUrl(hash, ggTable)
 		images = append(images, GalleryImage{
-			Hash:   hash,
-			URL:    imgURL,
-			Width:  int(w),
-			Height: int(height),
+			ImageHash: hash,
+			URL:       imgURL,
+			Width:     int(w),
+			Height:    int(height),
 		})
 	}
 
