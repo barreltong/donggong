@@ -192,7 +192,7 @@ func TestReaderDataIntegration(t *testing.T) {
 	}
 	firstImg := readerData.Images[0]
 	t.Logf("First image URL: %s (%dx%d)", firstImg.URL, firstImg.Width, firstImg.Height)
-	if firstImg.URL == "" || firstImg.Hash == "" {
+	if firstImg.URL == "" || firstImg.ImageHash == "" {
 		t.Fatalf("invalid image in reader data")
 	}
 
