@@ -30,6 +30,8 @@ struct SettingsView: View {
     @State private var isExporting = false
     @State private var isImporting = false
     @State private var confirmReset = false
+    @State private var pendingImport: [FavoriteKey]?
+    @State private var confirmImport = false
     @State private var isWorking = false
 
     var body: some View {
@@ -69,6 +71,19 @@ struct SettingsView: View {
                 Self.logger.error("Import picker failed: \(error.localizedDescription)")
                 app.showToast(tr("지원하지 않거나 손상된 백업 파일입니다.", "Unsupported or corrupted backup file."))
             }
+        }
+        .alert(
+            tr("즐겨찾기 가져오기", "Import favorites"),
+            isPresented: $confirmImport,
+            presenting: pendingImport
+        ) { keys in
+            Button(tr("가져오기", "Import"), role: .destructive) { applyImport(keys) }
+            Button(tr("취소", "Cancel"), role: .cancel) {}
+        } message: { keys in
+            Text(tr(
+                "현재 즐겨찾기 \(app.library.favorites.keys.count)개가 백업의 \(keys.count)개로 교체됩니다.",
+                "Your \(app.library.favorites.keys.count) favorites will be replaced by the \(keys.count) in the backup."
+            ))
         }
         .alert(tr("데이터 초기화", "Reset app data"), isPresented: $confirmReset) {
             Button(tr("초기화", "Reset"), role: .destructive, action: resetData)
@@ -244,43 +259,60 @@ struct SettingsView: View {
                 app.showToast(tr("지원하지 않거나 손상된 백업 파일입니다.", "Unsupported or corrupted backup file."))
                 return
             }
-            do {
-                try app.library.replaceFavorites(with: keys)
-                app.showToast(tr("즐겨찾기를 가져왔습니다.", "Favorites imported."))
-            } catch {
-                Self.logger.error("Import failed: \(error.localizedDescription)")
-                app.showToast(tr("즐겨찾기를 저장하지 못했습니다.", "Could not save the favorites."))
-            }
+            // Importing replaces every favorite, so it waits for confirmation.
+            pendingImport = keys
+            confirmImport = true
+        }
+    }
+
+    private func applyImport(_ keys: [FavoriteKey]) {
+        pendingImport = nil
+        do {
+            try app.library.replaceFavorites(with: keys)
+            app.showToast(tr("즐겨찾기를 가져왔습니다.", "Favorites imported."))
+        } catch {
+            Self.logger.error("Import failed: \(error.localizedDescription)")
+            app.showToast(tr("즐겨찾기를 저장하지 못했습니다.", "Could not save the favorites."))
         }
     }
 
     private func clearCache() {
-        isWorking = true
-        Task {
-            defer { isWorking = false }
-            do {
-                try await app.library.clearCache()
-                app.home.reset()
-                app.showToast(tr("캐시가 삭제되었습니다.", "Cache cleared."))
-            } catch {
-                Self.logger.error("Cache clear failed: \(error.localizedDescription)")
-                app.showToast(tr("캐시를 삭제하지 못했습니다.", "Could not clear the cache."))
-            }
+        do {
+            try app.library.clearGalleryCache()
+        } catch {
+            Self.logger.error("Gallery cache clear failed: \(error.localizedDescription)")
+            app.showToast(tr("캐시를 삭제하지 못했습니다.", "Could not clear the cache."))
+            return
         }
+        app.home.reset()
+        clearImages(success: tr("캐시가 삭제되었습니다.", "Cache cleared."))
     }
 
     private func resetData() {
+        do {
+            try app.library.resetAll()
+        } catch {
+            Self.logger.error("Reset failed: \(error.localizedDescription)")
+            app.showToast(tr("데이터를 초기화하지 못했습니다.", "Could not reset the data."))
+            return
+        }
+        SettingsStore.resetAll()
+        app.home.reset()
+        clearImages(success: tr("데이터가 초기화되었습니다.", "Data reset complete."))
+    }
+
+    /// Runs after the database step has committed, so an image cache failure is reported without undoing it.
+    private func clearImages(success: String) {
         isWorking = true
+        let failure = tr("이미지 캐시를 삭제하지 못했습니다.", "Could not clear the image cache.")
         Task {
             defer { isWorking = false }
             do {
-                try await app.library.resetAll()
-                SettingsStore.resetAll()
-                app.home.reset()
-                app.showToast(tr("데이터가 초기화되었습니다.", "Data reset complete."))
+                try await ImagePipeline.shared.clear()
+                app.showToast(success)
             } catch {
-                Self.logger.error("Reset failed: \(error.localizedDescription)")
-                app.showToast(tr("데이터를 초기화하지 못했습니다.", "Could not reset the data."))
+                Self.logger.error("Image cache clear failed: \(error.localizedDescription)")
+                app.showToast(failure)
             }
         }
     }

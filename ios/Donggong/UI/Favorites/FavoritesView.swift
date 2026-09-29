@@ -23,6 +23,8 @@ struct FavoritesView: View {
     @State private var segment = Segment.galleries
     @State private var page = 1
     @State private var loaded: [Int64: Gallery] = [:]
+    /// Ids whose metadata could not be fetched; infinite scroll skips them until a retry.
+    @State private var failedIDs: Set<Int64> = []
     @State private var isLoading = false
     @State private var loadGeneration = 0
     @State private var position = ScrollPosition(edge: .top)
@@ -47,7 +49,7 @@ struct FavoritesView: View {
 
                 switch segment {
                 case .galleries:
-                    galleryContent(ids: ids, visible: visible)
+                    galleryContent(ids: ids, visible: visible, failed: visibleIDs.filter { failedIDs.contains($0) })
                 case .tags:
                     tagContent(favorites.chips)
                 }
@@ -67,13 +69,14 @@ struct FavoritesView: View {
         }
         .task(id: LoadTrigger(ids: ids, listing: listingMode, page: currentPage)) {
             loaded = loaded.filter { ids.contains($0.key) }
+            failedIDs = failedIDs.filter { ids.contains($0) }
             let first = listingMode == .pagination ? pageSlice(ids, page: currentPage) : Array(ids.prefix(Self.pageSize))
             await load(first)
         }
     }
 
     @ViewBuilder
-    private func galleryContent(ids: [Int64], visible: [Gallery]) -> some View {
+    private func galleryContent(ids: [Int64], visible: [Gallery], failed: [Int64]) -> some View {
         if ids.isEmpty {
             ContentUnavailableView(
                 tr("즐겨찾기한 작품이 없습니다", "No favorite galleries"),
@@ -82,17 +85,37 @@ struct FavoritesView: View {
             )
         } else if visible.isEmpty && isLoading {
             LoadingView()
+        } else if visible.isEmpty && !failed.isEmpty {
+            ContentUnavailableView {
+                Label(tr("작품 정보를 불러오지 못했습니다", "Could not load the galleries"), systemImage: "wifi.exclamationmark")
+            } description: {
+                Text(tr("네트워크 상태를 확인하고 다시 시도해보세요", "Check your connection and try again"))
+            } actions: {
+                Button(tr("다시 시도", "Retry")) { retry(failed) }
+                    .buttonStyle(.glass)
+            }
         } else {
             GalleryCollection(
                 galleries: visible,
                 mode: cardMode,
                 position: $position,
+                isLoading: isLoading,
                 onReachEnd: { loadMore(ids: ids) }
             ) {
                 if isLoading {
                     ProgressView()
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
+                } else if !failed.isEmpty {
+                    VStack(spacing: 8) {
+                        Text(tr("작품 \(failed.count)개를 불러오지 못했습니다", "\(failed.count) galleries could not be loaded"))
+                            .font(.footnote)
+                            .foregroundStyle(palette.secondaryText)
+                        Button(tr("다시 시도", "Retry"), systemImage: "arrow.clockwise") { retry(failed) }
+                            .buttonStyle(.glass)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
                 }
             }
         }
@@ -126,9 +149,14 @@ struct FavoritesView: View {
 
     private func loadMore(ids: [Int64]) {
         guard listingMode == .scroll, !isLoading else { return }
-        let next = Array(ids.lazy.filter { loaded[$0] == nil }.prefix(Self.pageSize))
+        let next = Array(ids.lazy.filter { loaded[$0] == nil && !failedIDs.contains($0) }.prefix(Self.pageSize))
         guard !next.isEmpty else { return }
         Task { await load(next) }
+    }
+
+    private func retry(_ ids: [Int64]) {
+        failedIDs.subtract(ids)
+        Task { await load(ids) }
     }
 
     /// Fills `loaded` from the metadata cache first, then fetches the rest in small batches.
@@ -153,6 +181,9 @@ struct FavoritesView: View {
                 loaded[gallery.id] = gallery
                 app.library.cacheGallery(gallery)
             }
+            let fetchedIDs = Set(fetched.map(\.id))
+            failedIDs.subtract(fetchedIDs)
+            failedIDs.formUnion(chunk.filter { !fetchedIDs.contains($0) })
         }
     }
 }

@@ -11,6 +11,9 @@ struct HistoryView: View {
     @AppStorage(CardViewMode.key) private var cardMode = CardViewMode.fallback
 
     @State private var galleries: [Gallery] = []
+    @State private var entryCount = 0
+    @State private var missingCount = 0
+    @State private var attempt = 0
     @State private var isLoading = true
     @State private var confirmClear = false
     @State private var loadGeneration = 0
@@ -24,7 +27,7 @@ struct HistoryView: View {
                 .navigationTitle(tr("기록", "History"))
                 .toolbarTitleDisplayMode(.inline)
                 .toolbar {
-                    if !galleries.isEmpty {
+                    if entryCount > 0 {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button(tr("기록 삭제", "Clear history"), systemImage: "trash", role: .destructive) {
                                 confirmClear = true
@@ -42,7 +45,12 @@ struct HistoryView: View {
                     ))
                 }
         }
-        .task(id: app.library.historyRevision) { await load() }
+        .task(id: LoadTrigger(revision: app.library.historyRevision, attempt: attempt)) { await load() }
+    }
+
+    private struct LoadTrigger: Equatable {
+        let revision: Int
+        let attempt: Int
     }
 
     @ViewBuilder
@@ -50,6 +58,15 @@ struct HistoryView: View {
         if galleries.isEmpty {
             if isLoading {
                 LoadingView()
+            } else if missingCount > 0 {
+                ContentUnavailableView {
+                    Label(tr("기록을 불러오지 못했습니다", "Could not load the history"), systemImage: "wifi.exclamationmark")
+                } description: {
+                    Text(tr("네트워크 상태를 확인하고 다시 시도해보세요", "Check your connection and try again"))
+                } actions: {
+                    Button(tr("다시 시도", "Retry")) { attempt += 1 }
+                        .buttonStyle(.glass)
+                }
             } else {
                 ContentUnavailableView(
                     tr("최근 본 작품이 없습니다", "No recently viewed galleries"),
@@ -58,7 +75,9 @@ struct HistoryView: View {
                 )
             }
         } else if cardMode == .grid {
-            GalleryCollection(galleries: galleries, mode: .grid, position: $position, onRemove: { remove($0.id) })
+            GalleryCollection(galleries: galleries, mode: .grid, position: $position, onRemove: { remove($0.id) }) {
+                missingFooter
+            }
         } else {
             List {
                 ForEach(galleries) { gallery in
@@ -69,9 +88,27 @@ struct HistoryView: View {
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) { deleteAction(gallery) }
                         .swipeActions(edge: .leading, allowsFullSwipe: true) { deleteAction(gallery) }
                 }
+                missingFooter
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
+        }
+    }
+
+    @ViewBuilder
+    private var missingFooter: some View {
+        if missingCount > 0 && !isLoading {
+            VStack(spacing: 8) {
+                Text(tr("기록 \(missingCount)개를 불러오지 못했습니다", "\(missingCount) entries could not be loaded"))
+                    .font(.footnote)
+                    .foregroundStyle(palette.secondaryText)
+                Button(tr("다시 시도", "Retry"), systemImage: "arrow.clockwise") { attempt += 1 }
+                    .buttonStyle(.glass)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
         }
     }
 
@@ -99,13 +136,16 @@ struct HistoryView: View {
             Self.logger.error("Could not read history: \(error.localizedDescription)")
             return
         }
+        entryCount = ids.count
         guard !ids.isEmpty else {
             galleries = []
+            missingCount = 0
             return
         }
 
         var byID = app.library.cachedGalleries(ids: ids)
         galleries = ids.compactMap { byID[$0] }
+        missingCount = ids.count - galleries.count
 
         let missing = ids.filter { byID[$0] == nil }
         for chunk in missing.chunks(of: Self.fetchConcurrency) {
@@ -117,6 +157,7 @@ struct HistoryView: View {
                 app.library.cacheGallery(gallery)
             }
             galleries = ids.compactMap { byID[$0] }
+            missingCount = ids.count - galleries.count
         }
     }
 
@@ -134,6 +175,8 @@ struct HistoryView: View {
         do {
             try app.library.clearHistory()
             galleries = []
+            entryCount = 0
+            missingCount = 0
         } catch {
             Self.logger.error("Could not clear history: \(error.localizedDescription)")
             app.showToast(tr("기록을 삭제하지 못했습니다.", "Could not delete the history entry."))

@@ -8,6 +8,7 @@ struct ReaderView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.tr) private var tr
     @Environment(\.colorScheme) private var appColorScheme
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
 
     @State private var gallery: Gallery?
     @State private var loadFailed = false
@@ -32,6 +33,9 @@ struct ReaderView: View {
 
     private var images: [GalleryImage] { gallery?.images ?? [] }
 
+    /// VoiceOver users cannot rely on tapping the page, so the controls stay up for them.
+    private var controlsVisible: Bool { showControls || voiceOverEnabled }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -47,14 +51,15 @@ struct ReaderView: View {
                     .tint(.white)
             }
 
-            if showControls || gallery == nil || images.isEmpty {
+            if controlsVisible || gallery == nil || images.isEmpty {
                 controls
                     .transition(.opacity)
             }
         }
+        .accessibilityAction(.escape) { dismiss() }
         .environment(\.colorScheme, .dark)
-        .statusBarHidden(!showControls)
-        .persistentSystemOverlays(showControls ? .automatic : .hidden)
+        .statusBarHidden(!controlsVisible)
+        .persistentSystemOverlays(controlsVisible ? .automatic : .hidden)
         .task(id: loadAttempt) { await load() }
         .onChange(of: scrolledID) { _, id in
             guard let id, !images.isEmpty else { return }
@@ -91,7 +96,7 @@ struct ReaderView: View {
         .pageJumpAlert(isPresented: $showJump, current: currentPage + 1, total: max(images.count, 1)) { page in
             jump(to: page - 1)
         }
-        .toastOverlay(bottomPadding: showControls ? 170 : 24)
+        .toastOverlay(bottomPadding: controlsVisible ? 170 : 24)
     }
 
     // MARK: Pages
@@ -124,7 +129,7 @@ struct ReaderView: View {
             ScrollView(.vertical) {
                 LazyVStack(spacing: 0) {
                     ForEach(images.indices, id: \.self) { index in
-                        ReaderPageView(slots: [images[index]], resetToken: 0, onTap: toggleControls)
+                        ReaderPageView(slots: [images[index]], label: pageLabel(index), resetToken: 0, onTap: toggleControls)
                             .aspectRatio(images[index].aspectRatio, contentMode: .fit)
                             .id(index)
                     }
@@ -136,7 +141,7 @@ struct ReaderView: View {
             ScrollView(.vertical) {
                 LazyVStack(spacing: 0) {
                     ForEach(images.indices, id: \.self) { index in
-                        ReaderPageView(slots: [images[index]], resetToken: reset, onTap: toggleControls)
+                        ReaderPageView(slots: [images[index]], label: pageLabel(index), resetToken: reset, onTap: toggleControls)
                             .containerRelativeFrame([.horizontal, .vertical])
                             .id(index)
                     }
@@ -147,11 +152,11 @@ struct ReaderView: View {
             .scrollPosition(id: $scrolledID, anchor: scrollAnchor)
         case .horizontalPage:
             horizontalPager(count: images.count) { index in
-                ReaderPageView(slots: [images[index]], resetToken: reset, onTap: toggleControls)
+                ReaderPageView(slots: [images[index]], label: pageLabel(index), resetToken: reset, onTap: toggleControls)
             }
         case .doublePage:
             horizontalPager(count: (images.count + 1) / 2) { spread in
-                ReaderPageView(slots: spreadSlots(spread), resetToken: reset, onTap: toggleControls)
+                ReaderPageView(slots: spreadSlots(spread), label: spreadLabel(spread), resetToken: reset, onTap: toggleControls)
             }
         }
     }
@@ -181,6 +186,18 @@ struct ReaderView: View {
         return order == .japanese ? [second, first] : [first, second]
     }
 
+    private func pageLabel(_ index: Int) -> String {
+        tr("\(index + 1) / \(images.count) 페이지", "Page \(index + 1) of \(images.count)")
+    }
+
+    private func spreadLabel(_ spread: Int) -> String {
+        let first = spread * 2 + 1
+        let last = min(first + 1, images.count)
+        return first == last
+            ? pageLabel(first - 1)
+            : tr("\(first)-\(last) / \(images.count) 페이지", "Pages \(first)-\(last) of \(images.count)")
+    }
+
     private var failureView: some View {
         ContentUnavailableView {
             Label(tr("이미지를 불러올 수 없습니다.", "Unable to load images."), systemImage: "photo.badge.exclamationmark")
@@ -203,7 +220,7 @@ struct ReaderView: View {
         VStack {
             topBar
             Spacer()
-            if showControls && !images.isEmpty {
+            if controlsVisible && !images.isEmpty {
                 bottomBar
             }
         }
@@ -393,37 +410,49 @@ struct ReaderView: View {
 /// Loads the images for one page or spread and shows them zoomable once all are ready.
 private struct ReaderPageView: View {
     let slots: [GalleryImage?]
+    let label: String
     let resetToken: Int
     let onTap: () -> Void
 
-    @State private var loaded: [Int: UIImage]
+    /// Keyed by URL so swapping the spread order keeps what is already loaded.
+    @State private var loaded: [String: UIImage]
     @State private var failed = false
     @State private var attempt = 0
     @Environment(\.tr) private var tr
 
     private static let decodeWidth: CGFloat = 2400
 
-    init(slots: [GalleryImage?], resetToken: Int, onTap: @escaping () -> Void) {
+    init(slots: [GalleryImage?], label: String, resetToken: Int, onTap: @escaping () -> Void) {
         self.slots = slots
+        self.label = label
         self.resetToken = resetToken
         self.onTap = onTap
-        var cached: [Int: UIImage] = [:]
-        for (index, slot) in slots.enumerated() {
-            if let slot, let hit = ImagePipeline.shared.cachedImage(url: slot.url, maxPixelWidth: Self.decodeWidth) {
-                cached[index] = hit.image
+        var cached: [String: UIImage] = [:]
+        for slot in slots.compactMap({ $0 }) {
+            if let hit = ImagePipeline.shared.cachedImage(url: slot.url, maxPixelWidth: Self.decodeWidth) {
+                cached[slot.url] = hit.image
             }
         }
         _loaded = State(initialValue: cached)
     }
 
     private var isComplete: Bool {
-        slots.indices.allSatisfy { slots[$0] == nil || loaded[$0] != nil }
+        slots.allSatisfy { slot in slot.map { loaded[$0.url] != nil } ?? true }
     }
 
     var body: some View {
         Group {
             if isComplete {
-                ZoomableImageView(images: slots.indices.map { loaded[$0] }, resetToken: resetToken, onTap: onTap)
+                ZoomableImageView(
+                    images: slots.map { slot in slot.flatMap { loaded[$0.url] } },
+                    resetToken: resetToken,
+                    onTap: onTap
+                )
+                .accessibilityElement()
+                .accessibilityLabel(label)
+                .accessibilityAddTraits([.isImage, .isButton])
+                .accessibilityHint(tr("두 번 탭하면 컨트롤을 표시하거나 숨깁니다", "Double-tap to show or hide the controls"))
+                .accessibilityAction { onTap() }
             } else if failed {
                 VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle")
@@ -450,6 +479,8 @@ private struct ReaderPageView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(.rect)
                 .onTapGesture(perform: onTap)
+                .accessibilityElement(children: .combine)
+                .accessibilityAction { onTap() }
             }
         }
         .task(id: attempt) { await load() }
@@ -457,22 +488,19 @@ private struct ReaderPageView: View {
 
     private func load() async {
         failed = false
-        var pending: [(index: Int, image: GalleryImage)] = []
-        for (index, slot) in slots.enumerated() {
-            if let slot, loaded[index] == nil { pending.append((index, slot)) }
-        }
+        let pending = slots.compactMap { $0 }.filter { loaded[$0.url] == nil }
         guard !pending.isEmpty else { return }
         let width = Self.decodeWidth
-        await withTaskGroup(of: (Int, DecodedImage?).self) { group in
-            for item in pending {
+        await withTaskGroup(of: (String, DecodedImage?).self) { group in
+            for image in pending {
                 group.addTask {
-                    let decoded = await ImageFetch.load(url: item.image.url, hash: item.image.imageHash, maxPixelWidth: width)
-                    return (item.index, decoded)
+                    let decoded = await ImageFetch.load(url: image.url, hash: image.imageHash, maxPixelWidth: width)
+                    return (image.url, decoded)
                 }
             }
-            for await (index, decoded) in group {
+            for await (url, decoded) in group {
                 if let decoded {
-                    loaded[index] = decoded.image
+                    loaded[url] = decoded.image
                 } else if !Task.isCancelled {
                     failed = true
                 }

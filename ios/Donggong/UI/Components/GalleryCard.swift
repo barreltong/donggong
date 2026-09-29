@@ -70,7 +70,7 @@ struct GalleryCard: View {
         VStack(alignment: .leading, spacing: 0) {
             Color.clear
                 .aspectRatio(0.72, contentMode: .fit)
-                .overlay { RemoteImage(url: gallery.thumbnail, maxPixelWidth: 540) }
+                .overlay { RemoteImage(url: gallery.thumbnail, maxPixelWidth: 540).accessibilityHidden(true) }
                 .overlay(alignment: .bottom) {
                     LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .top, endPoint: .bottom)
                         .frame(height: 42)
@@ -80,7 +80,7 @@ struct GalleryCard: View {
                     idButton(onImage: true).padding(5)
                 }
                 .overlay(alignment: .topTrailing) {
-                    favoriteButton(isFavorite: isFavorite, onImage: true).padding(5)
+                    favoriteButton(isFavorite: isFavorite, onImage: true)
                 }
                 .overlay(alignment: .bottomLeading) {
                     if !gallery.language.isEmpty {
@@ -105,6 +105,7 @@ struct GalleryCard: View {
     private func rowLayout(isFavorite: Bool, compact: Bool) -> some View {
         HStack(alignment: .top, spacing: 9) {
             RemoteImage(url: gallery.thumbnail, maxPixelWidth: 300)
+                .accessibilityHidden(true)
                 .frame(width: compact ? 80 : 96, height: compact ? 114 : 136)
                 .clipShape(.rect(cornerRadius: compact ? 10 : 12))
                 .overlay(alignment: .bottomTrailing) {
@@ -120,6 +121,7 @@ struct GalleryCard: View {
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     favoriteButton(isFavorite: isFavorite, onImage: false)
+                        .padding([.top, .trailing], -7)
                 }
 
                 if !gallery.artists.isEmpty {
@@ -174,7 +176,9 @@ struct GalleryCard: View {
                 .background {
                     if onImage { Circle().fill(Color.black.opacity(0.5)) }
                 }
-                .contentShape(.circle)
+                // The visible circle stays small; the touch target meets 44 points.
+                .padding(7)
+                .contentShape(.rect)
                 .symbolEffect(.bounce, value: isFavorite)
         }
         .buttonStyle(.plain)

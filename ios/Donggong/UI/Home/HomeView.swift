@@ -50,29 +50,18 @@ struct HomeView: View {
     @ViewBuilder
     private func content(_ model: HomeModel) -> some View {
         if model.galleries.isEmpty {
-            if model.isLoading {
-                LoadingView(caption: tr("작품 목록 불러오는 중...", "Loading galleries..."))
-            } else if model.loadFailed {
-                ContentUnavailableView {
-                    Label(tr("목록을 불러오지 못했습니다", "Could not load galleries"), systemImage: "wifi.exclamationmark")
-                } description: {
-                    Text(tr("네트워크 상태를 확인하고 다시 시도해보세요", "Check your connection and try again"))
-                } actions: {
-                    Button(tr("다시 시도", "Retry"), action: model.retry)
-                        .buttonStyle(.glass)
-                }
-            } else {
-                ContentUnavailableView(
-                    tr("검색 결과가 없습니다", "No results found"),
-                    systemImage: "magnifyingglass",
-                    description: Text(tr("다른 검색어나 언어로 다시 시도해보세요", "Try another search or language"))
-                )
+            // A scroll view keeps pull to refresh available on the empty and error states.
+            ScrollView {
+                emptyState(model)
+                    .containerRelativeFrame([.horizontal, .vertical])
             }
+            .refreshable { await model.refresh() }
         } else {
             GalleryCollection(
                 galleries: model.galleries,
                 mode: cardMode,
                 position: $position,
+                isLoading: model.isLoading,
                 onReachEnd: model.loadMore
             ) {
                 if listingMode == .scroll {
@@ -80,6 +69,37 @@ struct HomeView: View {
                 }
             }
             .refreshable { await model.refresh() }
+            .overlay(alignment: .top) {
+                if listingMode == .pagination && model.isLoading {
+                    ProgressView()
+                        .padding(12)
+                        .glassEffect(.regular, in: .circle)
+                        .padding(.top, 8)
+                        .accessibilityLabel(tr("불러오는 중", "Loading"))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func emptyState(_ model: HomeModel) -> some View {
+        if model.isLoading {
+            LoadingView(caption: tr("작품 목록 불러오는 중...", "Loading galleries..."))
+        } else if model.loadFailed {
+            ContentUnavailableView {
+                Label(tr("목록을 불러오지 못했습니다", "Could not load galleries"), systemImage: "wifi.exclamationmark")
+            } description: {
+                Text(tr("네트워크 상태를 확인하고 다시 시도해보세요", "Check your connection and try again"))
+            } actions: {
+                Button(tr("다시 시도", "Retry"), action: model.retry)
+                    .buttonStyle(.glass)
+            }
+        } else {
+            ContentUnavailableView(
+                tr("검색 결과가 없습니다", "No results found"),
+                systemImage: "magnifyingglass",
+                description: Text(tr("다른 검색어나 언어로 다시 시도해보세요", "Try another search or language"))
+            )
         }
     }
 
