@@ -113,22 +113,48 @@ jobs:
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" build/DerivedData/Build/Products/Release-iphonesimulator/Donggong.app
-          LAUNCH=$(xcrun simctl launch \
+          sudo DevToolsSecurity -enable || true
+          # GOTRACEBACK=crash turns a Go fatal error into SIGABRT so the debugger stops on it.
+          LAUNCH=$(SIMCTL_CHILD_GOTRACEBACK=crash xcrun simctl launch --wait-for-debugger \
             --stdout="$PWD/build/launch/stdout.log" \
             --stderr="$PWD/build/launch/stderr.log" \
             "$UDID" io.github.devgaki.donggong)
           PID=${LAUNCH##*: }
-          sleep 30
+          echo "Launched pid ${PID}"
+          # The debugger records the stop reason and every thread's stack if the app dies.
+          # Go preempts goroutines with SIGURG, which must pass through silently.
+          xcrun lldb --batch \
+            -o "process attach --pid ${PID}" \
+            -o "process handle SIGURG --stop false --notify false --pass true" \
+            -o "continue" \
+            -k "process status" \
+            -k "thread backtrace all" \
+            > build/launch/lldb.log 2>&1 &
+          LLDB_PID=$!
+          ALIVE=yes
+          for second in $(seq 1 30); do
+            sleep 1
+            if ! kill -0 "$PID" 2>/dev/null; then
+              ALIVE=no
+              echo "Donggong was gone after ${second} seconds"
+              break
+            fi
+          done
+          sleep 5
           xcrun simctl io "$UDID" screenshot build/launch/screen.png || true
           xcrun simctl spawn "$UDID" log show --last 5m --style compact \
-            --predicate 'process == "Donggong"' > build/launch/system.log || true
+            --predicate "process == \"Donggong\" OR eventMessage CONTAINS \"${PID}\" OR eventMessage CONTAINS[c] \"devgaki\"" \
+            > build/launch/system.log || true
+          ls -la ~/Library/Logs/DiagnosticReports/ > build/launch/reports.txt 2>&1 || true
           cp ~/Library/Logs/DiagnosticReports/Donggong*.ips build/launch/ 2>/dev/null || true
-          if ! kill -0 "$PID" 2>/dev/null; then
+          kill "$LLDB_PID" 2>/dev/null || true
+          echo "::group::lldb"
+          cat build/launch/lldb.log || true
+          echo "::endgroup::"
+          if [ "$ALIVE" = no ]; then
             echo "::error::Donggong exited within 30 seconds of launch"
-            cat build/launch/stderr.log || true
-            for report in build/launch/*.ips; do
-              [ -f "$report" ] && cat "$report"
-            done
+            grep -v '^CoreData' build/launch/stderr.log || true
+            grep -iE 'terminat|exit|signal|crash|kill' build/launch/system.log | grep -v CoreData | tail -40 || true
             exit 1
           fi
 
