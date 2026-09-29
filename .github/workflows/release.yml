@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build-android:
     runs-on: ubuntu-latest
 
     steps:
@@ -68,18 +68,45 @@ jobs:
           name: release-apk
           path: app/build/outputs/apk/release/app-release.apk
 
-      - name: Prepare Release Asset
-        if: startsWith(github.ref, 'refs/tags/v')
+  build-ios:
+    uses: ./.github/workflows/ios.yml
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-android, build-ios]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: release-apk
+          path: artifacts/android
+
+      - name: Download IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: donggong-ios-unsigned
+          path: artifacts/ios
+
+      - name: Prepare Release Assets
         shell: bash
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release.apk "dist/donggong-${GITHUB_REF_NAME}.apk"
+          cp artifacts/android/app-release.apk "dist/donggong-${GITHUB_REF_NAME}.apk"
+          ipa=(artifacts/ios/*.ipa)
+          if [ "${#ipa[@]}" -ne 1 ] || [ ! -f "${ipa[0]}" ]; then
+            echo "::error::Expected exactly one IPA artifact"
+            exit 1
+          fi
+          cp "${ipa[0]}" "dist/donggong-${GITHUB_REF_NAME}-unsigned.ipa"
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           generate_release_notes: true
-          files: dist/donggong-${{ github.ref_name }}.apk
+          files: |
+            dist/donggong-${{ github.ref_name }}.apk
+            dist/donggong-${{ github.ref_name }}-unsigned.ipa
