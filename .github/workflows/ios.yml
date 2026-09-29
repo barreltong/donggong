@@ -2,11 +2,15 @@ name: iOS
 
 on:
   push:
+    # Branches only: tag pushes build the IPA through release.yml instead.
+    branches:
+      - '**'
     paths:
       - 'ios/**'
       - 'core/**'
       - '.github/workflows/ios.yml'
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
