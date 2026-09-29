@@ -87,10 +87,14 @@ final class LibraryStore {
     /// Bumped on every history change so history screens know to reload.
     private(set) var historyRevision = 0
 
+    /// Held only to keep the store alive: a ModelContext does not retain its
+    /// container, and fetching after the container is freed traps.
+    private let container: ModelContainer
     private let context: ModelContext
     private let logger = Logger(subsystem: "io.github.devgaki.donggong", category: "LibraryStore")
 
     init(container: ModelContainer) {
+        self.container = container
         context = container.mainContext
         context.autosaveEnabled = false
         do {
