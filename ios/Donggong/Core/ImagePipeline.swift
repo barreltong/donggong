@@ -23,6 +23,7 @@ final class ImagePipeline: @unchecked Sendable {
     private let memory = NSCache<NSString, UIImage>()
     private let lock = NSLock()
     private var inflight: [String: Task<Data, any Error>] = [:]
+    private var writesSinceTrim = 0
     private let directory: URL
 
     private init() {
@@ -109,6 +110,7 @@ final class ImagePipeline: @unchecked Sendable {
                 let fetched = try await CoreBridge.fetchBytes(url: url)
                 do {
                     try fetched.write(to: file, options: .atomic)
+                    if self.shouldTrimAfterWrite() { self.trimDiskCache() }
                 } catch {
                     Self.logger.error("Could not cache image: \(error.localizedDescription)")
                 }
@@ -118,6 +120,16 @@ final class ImagePipeline: @unchecked Sendable {
             return task
         }
         return try await task.value
+    }
+
+    /// Keeps the disk budget enforced during long sessions without scanning on every write.
+    private func shouldTrimAfterWrite() -> Bool {
+        lock.withLock {
+            writesSinceTrim += 1
+            guard writesSinceTrim >= 200 else { return false }
+            writesSinceTrim = 0
+            return true
+        }
     }
 
     private func memoryKey(_ url: String, _ maxPixelWidth: CGFloat) -> NSString {

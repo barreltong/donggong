@@ -270,13 +270,12 @@ final class LibraryStore {
 
     // MARK: Maintenance
 
-    func clearCache() async throws {
+    func clearGalleryCache() throws {
         try context.delete(model: GalleryCacheRecord.self)
         try save()
-        try await ImagePipeline.shared.clear()
     }
 
-    func resetAll() async throws {
+    func resetAll() throws {
         try context.delete(model: FavoriteRecord.self)
         try context.delete(model: HistoryRecord.self)
         try context.delete(model: GalleryCacheRecord.self)
@@ -284,7 +283,6 @@ final class LibraryStore {
         try save()
         favorites = Favorites()
         historyRevision += 1
-        try await ImagePipeline.shared.clear()
     }
 
     private func upsertCache(_ gallery: Gallery) throws {

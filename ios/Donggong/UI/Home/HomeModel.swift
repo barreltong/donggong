@@ -58,6 +58,8 @@ final class HomeModel {
 
     func submit(_ raw: String) {
         let normalized = TagInfo.normalizeQuery(raw)
+        // Invalidate in-flight pages for the previous query before anything else runs.
+        requestVersion += 1
         query = raw
         activeQuery = normalized
         if !normalized.isEmpty {
@@ -138,6 +140,11 @@ final class HomeModel {
         } catch {
             guard version == requestVersion else { return }
             logger.error("Gallery list failed: \(error.localizedDescription)")
+            if replace {
+                // Stale results under a new query or page would look like the answer to it.
+                galleries = []
+                totalCount = 0
+            }
             loadFailed = true
         }
     }

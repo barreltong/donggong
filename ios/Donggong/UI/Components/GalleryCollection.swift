@@ -6,11 +6,13 @@ struct GalleryCollection<Footer: View>: View {
     let galleries: [Gallery]
     let mode: CardViewMode
     @Binding var position: ScrollPosition
+    var isLoading = false
     var onReachEnd: (() -> Void)?
     var onRemove: ((Gallery) -> Void)?
     @ViewBuilder var footer: () -> Footer
 
     @State private var showScrollToTop = false
+    @State private var isNearEnd = false
     @Environment(\.tr) private var tr
 
     var body: some View {
@@ -18,11 +20,11 @@ struct GalleryCollection<Footer: View>: View {
             Group {
                 if mode == .grid {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
-                        cards(threshold: 6)
+                        cards
                     }
                 } else {
                     LazyVStack(spacing: 8) {
-                        cards(threshold: 4)
+                        cards
                     }
                 }
             }
@@ -37,6 +39,20 @@ struct GalleryCollection<Footer: View>: View {
             geometry.contentOffset.y + geometry.contentInsets.top > 900
         } action: { _, isFar in
             withAnimation(.snappy) { showScrollToTop = isFar }
+        }
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+            let visibleBottom = geometry.contentOffset.y + geometry.containerSize.height
+            return geometry.contentSize.height + geometry.contentInsets.bottom - visibleBottom < 800
+        } action: { _, near in
+            isNearEnd = near
+            if near { onReachEnd?() }
+        }
+        // Re-check after every page or load, because staying near the end fires no scroll change.
+        .onChange(of: galleries.count) {
+            if isNearEnd { onReachEnd?() }
+        }
+        .onChange(of: isLoading) {
+            if !isLoading && isNearEnd { onReachEnd?() }
         }
         .overlay(alignment: .bottomTrailing) {
             if showScrollToTop {
@@ -57,11 +73,12 @@ struct GalleryCollection<Footer: View>: View {
         }
     }
 
-    private func cards(threshold: Int) -> some View {
-        ForEach(Array(galleries.enumerated()), id: \.element.id) { index, gallery in
+    private var cards: some View {
+        let tail = Set(galleries.suffix(6).map(\.id))
+        return ForEach(galleries) { gallery in
             GalleryCard(gallery: gallery, mode: mode, onRemove: onRemove.map { remove in { remove(gallery) } })
                 .onAppear {
-                    if index >= galleries.count - threshold { onReachEnd?() }
+                    if tail.contains(gallery.id) { onReachEnd?() }
                 }
         }
     }
@@ -72,10 +89,18 @@ extension GalleryCollection where Footer == EmptyView {
         galleries: [Gallery],
         mode: CardViewMode,
         position: Binding<ScrollPosition>,
+        isLoading: Bool = false,
         onReachEnd: (() -> Void)? = nil,
         onRemove: ((Gallery) -> Void)? = nil
     ) {
-        self.init(galleries: galleries, mode: mode, position: position, onReachEnd: onReachEnd, onRemove: onRemove) {
+        self.init(
+            galleries: galleries,
+            mode: mode,
+            position: position,
+            isLoading: isLoading,
+            onReachEnd: onReachEnd,
+            onRemove: onRemove
+        ) {
             EmptyView()
         }
     }
