@@ -84,3 +84,58 @@ jobs:
           name: donggong-ios-unsigned
           path: ${{ env.IPA_PATH }}
           if-no-files-found: error
+
+      # A build that dies at launch must not reach a release, and the crash report
+      # is the only way to see why from a machine without Xcode.
+      - name: Build Simulator App
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project ios/Donggong.xcodeproj \
+            -scheme Donggong \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee build/xcodebuild-simulator.log
+
+      - name: Launch On Simulator
+        run: |
+          UDID=$(xcrun simctl list devices available --json \
+            | jq -r '[.devices | to_entries[] | select(.key | test("iOS-26")) | .value[] | select(.name | startswith("iPhone"))][0].udid')
+          if [ -z "$UDID" ] || [ "$UDID" = "null" ]; then
+            echo "::error::No iOS 26 iPhone simulator is available"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          mkdir -p build/launch
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" build/DerivedData/Build/Products/Release-iphonesimulator/Donggong.app
+          LAUNCH=$(xcrun simctl launch \
+            --stdout="$PWD/build/launch/stdout.log" \
+            --stderr="$PWD/build/launch/stderr.log" \
+            "$UDID" io.github.devgaki.donggong)
+          PID=${LAUNCH##*: }
+          sleep 30
+          xcrun simctl io "$UDID" screenshot build/launch/screen.png || true
+          xcrun simctl spawn "$UDID" log show --last 5m --style compact \
+            --predicate 'process == "Donggong"' > build/launch/system.log || true
+          cp ~/Library/Logs/DiagnosticReports/Donggong*.ips build/launch/ 2>/dev/null || true
+          if ! kill -0 "$PID" 2>/dev/null; then
+            echo "::error::Donggong exited within 30 seconds of launch"
+            cat build/launch/stderr.log || true
+            for report in build/launch/*.ips; do
+              [ -f "$report" ] && cat "$report"
+            done
+            exit 1
+          fi
+
+      - name: Upload Launch Diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: donggong-ios-launch
+          path: build/launch
+          if-no-files-found: ignore
