@@ -19,10 +19,10 @@ func Init() {
 	})
 }
 
+// ensureInit goes through the Once every time: an unsynchronized nil check on
+// client races with Init running on another thread.
 func ensureInit() {
-	if client == nil {
-		Init()
-	}
+	Init()
 }
 
 func GetListJson(page int, lang string) (string, error) {
