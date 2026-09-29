@@ -113,24 +113,14 @@ jobs:
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" build/DerivedData/Build/Products/Release-iphonesimulator/Donggong.app
-          sudo DevToolsSecurity -enable || true
-          # GOTRACEBACK=crash turns a Go fatal error into SIGABRT so the debugger stops on it.
-          LAUNCH=$(SIMCTL_CHILD_GOTRACEBACK=crash xcrun simctl launch --wait-for-debugger \
+          APP=io.github.devgaki.donggong
+
+          # Plain launch: how long the app lives and what the system logs about its exit.
+          LAUNCH=$(xcrun simctl launch \
             --stdout="$PWD/build/launch/stdout.log" \
             --stderr="$PWD/build/launch/stderr.log" \
-            "$UDID" io.github.devgaki.donggong)
+            "$UDID" "$APP")
           PID=${LAUNCH##*: }
-          echo "Launched pid ${PID}"
-          # The debugger records the stop reason and every thread's stack if the app dies.
-          # Go preempts goroutines with SIGURG, which must pass through silently.
-          xcrun lldb --batch \
-            -o "process attach --pid ${PID}" \
-            -o "process handle SIGURG --stop false --notify false --pass true" \
-            -o "continue" \
-            -k "process status" \
-            -k "thread backtrace all" \
-            > build/launch/lldb.log 2>&1 &
-          LLDB_PID=$!
           ALIVE=yes
           for second in $(seq 1 30); do
             sleep 1
@@ -140,21 +130,92 @@ jobs:
               break
             fi
           done
-          sleep 5
           xcrun simctl io "$UDID" screenshot build/launch/screen.png || true
-          xcrun simctl spawn "$UDID" log show --last 5m --style compact \
-            --predicate "process == \"Donggong\" OR eventMessage CONTAINS \"${PID}\" OR eventMessage CONTAINS[c] \"devgaki\"" \
+          sleep 3
+          xcrun simctl spawn "$UDID" log show --last 3m --style compact \
+            --predicate "process == \"Donggong\" OR eventMessage CONTAINS \"${PID}\"" \
             > build/launch/system.log || true
           ls -la ~/Library/Logs/DiagnosticReports/ > build/launch/reports.txt 2>&1 || true
           cp ~/Library/Logs/DiagnosticReports/Donggong*.ips build/launch/ 2>/dev/null || true
-          kill "$LLDB_PID" 2>/dev/null || true
-          echo "::group::lldb"
-          cat build/launch/lldb.log || true
-          echo "::endgroup::"
+          xcrun simctl terminate "$UDID" "$APP" 2>/dev/null || true
+
           if [ "$ALIVE" = no ]; then
+            # Debugged launch: record every stop, or the stacks after 40 seconds of running.
+            sudo DevToolsSecurity -enable || true
+            cat > "$RUNNER_TEMP/launch_debug.py" <<'EOF'
+          import os
+          import threading
+
+          import lldb
+
+
+          def describe(process, out):
+              state = process.GetState()
+              out.write(f"state: {lldb.SBDebugger.StateAsCString(state)}\n")
+              if state == lldb.eStateExited:
+                  out.write(f"exit status: {process.GetExitStatus()} {process.GetExitDescription()}\n")
+              else:
+                  for thread in process:
+                      out.write(
+                          f"thread #{thread.GetIndexID()} name={thread.GetName()} "
+                          f"queue={thread.GetQueueName()} stop={thread.GetStopDescription(256)}\n"
+                      )
+                      for frame in thread:
+                          out.write(f"    {frame}\n")
+              out.flush()
+
+
+          def __lldb_init_module(debugger, internal_dict):
+              out = open(os.environ["LLDB_REPORT"], "w")
+              debugger.SetAsync(False)
+              target = debugger.CreateTarget("")
+              error = lldb.SBError()
+              process = target.AttachToProcessWithID(debugger.GetListener(), int(os.environ["APP_PID"]), error)
+              if not error.Success():
+                  out.write(f"attach failed: {error}\n")
+                  out.close()
+                  return
+              signals = process.GetUnixSignals()
+              urg = signals.GetSignalNumberFromName("SIGURG")
+              signals.SetShouldStop(urg, False)
+              signals.SetShouldNotify(urg, False)
+              timed_out = threading.Event()
+
+              def interrupt():
+                  timed_out.set()
+                  process.SendAsyncInterrupt()
+
+              timer = threading.Timer(40, interrupt)
+              timer.start()
+              for _ in range(10):
+                  process.Continue()
+                  if process.GetState() == lldb.eStateExited:
+                      describe(process, out)
+                      break
+                  if timed_out.is_set():
+                      out.write("still running after 40 seconds\n")
+                      describe(process, out)
+                      process.Kill()
+                      break
+                  out.write("stopped\n")
+                  describe(process, out)
+              timer.cancel()
+              out.close()
+          EOF
+            # GOTRACEBACK=crash turns a Go fatal error into SIGABRT so the debugger stops on it.
+            LAUNCH=$(SIMCTL_CHILD_GOTRACEBACK=crash xcrun simctl launch --wait-for-debugger \
+              --stdout="$PWD/build/launch/stdout-debug.log" \
+              --stderr="$PWD/build/launch/stderr-debug.log" \
+              "$UDID" "$APP")
+            APP_PID=${LAUNCH##*: } LLDB_REPORT="$PWD/build/launch/lldb.txt" \
+              xcrun lldb --batch -o "command script import $RUNNER_TEMP/launch_debug.py" \
+              > build/launch/lldb.log 2>&1 || true
+            xcrun simctl io "$UDID" screenshot build/launch/screen-debug.png || true
+
             echo "::error::Donggong exited within 30 seconds of launch"
             grep -v '^CoreData' build/launch/stderr.log || true
-            grep -iE 'terminat|exit|signal|crash|kill' build/launch/system.log | grep -v CoreData | tail -40 || true
+            grep -iE 'terminat|exit|signal|crash|kill|watchdog' build/launch/system.log | grep -v CoreData | tail -40 || true
+            cat build/launch/lldb.txt || cat build/launch/lldb.log || true
             exit 1
           fi
 
