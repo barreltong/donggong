@@ -27,3 +27,9 @@ app/libs/core.aar
 
 # Go
 core/vendor/
+
+# Xcode
+ios/Core.xcframework/
+xcuserdata/
+*.xcuserstate
+DerivedData/
