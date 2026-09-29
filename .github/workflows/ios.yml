@@ -85,8 +85,8 @@ jobs:
           path: ${{ env.IPA_PATH }}
           if-no-files-found: error
 
-      # A build that dies at launch must not reach a release, and the crash report
-      # is the only way to see why from a machine without Xcode.
+      # A build that dies at launch must not reach a release. On failure the system
+      # exit reason and debugger stacks are the only way to see why without Xcode.
       - name: Build Simulator App
         run: |
           set -o pipefail
@@ -135,8 +135,6 @@ jobs:
           xcrun simctl spawn "$UDID" log show --last 3m --style compact \
             --predicate "process == \"Donggong\" OR eventMessage CONTAINS \"${PID}\"" \
             > build/launch/system.log || true
-          ls -la ~/Library/Logs/DiagnosticReports/ > build/launch/reports.txt 2>&1 || true
-          cp ~/Library/Logs/DiagnosticReports/Donggong*.ips build/launch/ 2>/dev/null || true
           xcrun simctl terminate "$UDID" "$APP" 2>/dev/null || true
 
           if [ "$ALIVE" = no ]; then
